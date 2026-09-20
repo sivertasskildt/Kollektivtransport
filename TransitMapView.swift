@@ -50,6 +50,7 @@ struct TransitMapView: View {
     @State private var skippedStopsCount: Int?
     @State private var errorMessage: String?
     @State private var isLoading = false
+    @State private var hasFetchedRoute = false
     
     @StateObject private var locationManager = LocationManager()
     
@@ -196,9 +197,10 @@ struct TransitMapView: View {
                 .padding(.top, 50)
             }
         }
-        // Kjør ruteberegning når brukerens posisjon er funnet
+        // Kjør ruteberegning når brukerens posisjon er funnet (kun første gang)
         .task(id: locationManager.location) {
-            guard let location = locationManager.location, optimalStop == nil else { return }
+            guard let location = locationManager.location, !hasFetchedRoute else { return }
+            hasFetchedRoute = true
             await fetchActiveTransitRoute(currentLocation: location)
         }
     }
