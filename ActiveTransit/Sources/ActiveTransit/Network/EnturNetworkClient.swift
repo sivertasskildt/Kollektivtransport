@@ -194,6 +194,9 @@ public final class EnturNetworkClient: EnturClientProtocol {
               expectedEndTime
               legs {
                 mode
+                toPlace {
+                  name
+                }
                 line {
                   publicCode
                   name
@@ -264,12 +267,16 @@ public final class EnturNetworkClient: EnturClientProtocol {
             
             let lineName = transitLeg.line?.publicCode ?? transitLeg.line?.name ?? "Transport"
             let desc = "\(lineName)"
+            let destName = transitLeg.toPlace?.name
+            let mode = transitLeg.mode
             
             let trip = TransitTrip(
                 expectedStartTime: pattern.expectedStartTime,
                 expectedEndTime: pattern.expectedEndTime,
                 mainServiceJourneyId: serviceJourneyId,
-                description: desc
+                description: desc,
+                mode: mode,
+                destinationName: destName
             )
             trips.append(trip)
         }
@@ -353,6 +360,11 @@ fileprivate struct TripLeg: Codable {
     let mode: String
     let line: TripLine?
     let serviceJourney: TripServiceJourney?
+    let toPlace: TripPlace?
+}
+
+fileprivate struct TripPlace: Codable {
+    let name: String
 }
 
 fileprivate struct TripLine: Codable {

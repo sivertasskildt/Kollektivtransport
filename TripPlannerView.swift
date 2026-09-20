@@ -10,7 +10,7 @@ struct TripPlannerView: View {
     @State private var errorMessage: String?
     
     // For navigation to TransitMapView
-    @State private var selectedServiceJourneyId: String?
+    @State private var selectedTrip: TransitTrip?
     
     // For Search
     @State private var searchQuery = ""
@@ -107,18 +107,26 @@ struct TripPlannerView: View {
                                 // List of trips
                                 ScrollView {
                                     VStack(alignment: .leading, spacing: 12) {
-                                        Text("Velg avgang for Aktiv Venting:")
+                                        Text("Velg avgang for Aktiv Overgang:")
                                             .font(.headline)
                                         
                                         ForEach(trips) { trip in
                                             Button {
-                                                selectedServiceJourneyId = trip.mainServiceJourneyId
+                                                selectedTrip = trip
                                             } label: {
                                                 HStack {
+                                                    Text(modeEmoji(for: trip.mode))
+                                                        .font(.largeTitle)
+                                                    
                                                     VStack(alignment: .leading) {
                                                         Text(trip.description)
                                                             .font(.subheadline)
                                                             .bold()
+                                                        if let dest = trip.destinationName {
+                                                            Text("mot \(dest)")
+                                                                .font(.caption)
+                                                                .foregroundColor(.secondary)
+                                                        }
                                                         Text("\(formatTime(trip.expectedStartTime)) - \(formatTime(trip.expectedEndTime))")
                                                             .font(.caption)
                                                             .foregroundColor(.secondary)
@@ -154,8 +162,8 @@ struct TripPlannerView: View {
             }
             .navigationTitle("Reiseplanlegger")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(item: $selectedServiceJourneyId) { journeyId in
-                TransitMapView(serviceJourneyId: journeyId)
+            .navigationDestination(item: $selectedTrip) { trip in
+                TransitMapView(trip: trip)
             }
             .onAppear {
                 locationManager.requestAuthorization()
@@ -241,6 +249,17 @@ struct TripPlannerView: View {
             self.searchQuery = ""
             self.trips = []
             self.errorMessage = nil
+        }
+    }
+    
+    private func modeEmoji(for mode: String) -> String {
+        switch mode.lowercased() {
+        case "bus": return "🚌"
+        case "tram": return "🚋"
+        case "metro": return "🚇"
+        case "rail": return "🚆"
+        case "water": return "⛴️"
+        default: return "🚍"
         }
     }
 }

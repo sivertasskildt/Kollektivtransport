@@ -54,13 +54,19 @@ struct TransitMapView: View {
     
     private let router = ActiveTransitRouter(enturClientName: "kollektiv-ios-app")
     
-    // Rute-ID-en sendes inn fra reiseplanleggeren
-    let serviceJourneyId: String
+    // Reisen sendes inn fra reiseplanleggeren
+    let trip: TransitTrip
     
     var body: some View {
         ZStack {
             Map(position: $cameraPosition) {
                 UserAnnotation()
+                
+                // Tegn opp selve ruten som en strek (Polyline)
+                if !allStops.isEmpty {
+                    MapPolyline(coordinates: allStops.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) })
+                        .stroke(.blue, lineWidth: 5)
+                }
                 
                 // Tegn opp alle stopp
                 ForEach(allStops, id: \.id) { stop in
@@ -86,7 +92,7 @@ struct TransitMapView: View {
                                     .foregroundColor(.white)
                             }
                             
-                            Text("Aktiv Venting")
+                            Text("Aktiv Overgang")
                                 .font(.caption)
                                 .bold()
                                 .padding(4)
@@ -120,7 +126,7 @@ struct TransitMapView: View {
                         }
                         
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Aktiv Venting")
+                            Text("Aktiv Overgang")
                                 .font(.headline)
                             Text("Du rekker å gå forbi \(skipped) stopp før avgangen din kommer!")
                                 .font(.subheadline)
@@ -174,13 +180,21 @@ struct TransitMapView: View {
         do {
             let networkClient = EnturNetworkClient(clientName: "kollektiv-ios-app")
             
-            // 1. Hent alle stopp først, slik at vi garantert kan tegne dem opp
-            self.allStops = try await networkClient.fetchSubsequentStops(for: serviceJourneyId)
+            // 1. Hent alle stopp
+            let fetchedStops = try await networkClient.fetchSubsequentStops(for: trip.mainServiceJourneyId)
+            
+            // Kutt listen ved destinasjonen hvis vi har den
+            if let destName = trip.destinationName,
+               let destIndex = fetchedStops.firstIndex(where: { $0.name == destName }) {
+                self.allStops = Array(fetchedStops.prefix(through: destIndex))
+            } else {
+                self.allStops = fetchedStops
+            }
             
             // 2. Prøv å beregne optimalt stopp
             do {
                 self.optimalStop = try await router.findOptimalBoardingStop(
-                    for: serviceJourneyId,
+                    for: trip.mainServiceJourneyId,
                     currentPosition: currentLocation,
                     walkingSpeed: 1.4,
                     safetyMargin: 120, // 2 min margin
@@ -218,7 +232,7 @@ struct TransitMapView: View {
             }
             
         } catch let error as ActiveTransitError {
-            self.errorMessage = "Feil med Aktiv Venting: \(error.localizedDescription)"
+            self.errorMessage = "Feil med Aktiv Overgang: \(error.localizedDescription)"
         } catch {
             self.errorMessage = "En uventet feil oppstod: \(error.localizedDescription)"
         }
@@ -227,6 +241,8 @@ struct TransitMapView: View {
     }
 }
 
+}
+
 #Preview {
-    TransitMapView(serviceJourneyId: "dummy-id")
+    TransitMapView(trip: TransitTrip(expectedStartTime: Date(), expectedEndTime: Date(), mainServiceJourneyId: "dummy-id", description: "Trikk 11", mode: "tram", destinationName: "Majorstuen"))
 }

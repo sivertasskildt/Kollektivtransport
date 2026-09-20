@@ -1,6 +1,6 @@
 # ActiveTransit Framework
 
-`ActiveTransit` er et frittstående Swift-rammeverk designet for å muliggjøre **Aktiv Venting** for tredjepartsapper innen kollektivtransport.
+`ActiveTransit` er et frittstående Swift-rammeverk designet for å muliggjøre **Aktiv Overgang** for tredjepartsapper innen kollektivtransport.
 
 Biblioteket er bygget uten bindinger til spesifikke UI-rammeverk (som SwiftUI eller UIKit), slik at det enkelt kan importeres og brukes i eksisterende applikasjoner (for eksempel Ruter-appen).
 
@@ -9,7 +9,7 @@ Biblioteket er bygget uten bindinger til spesifikke UI-rammeverk (som SwiftUI el
 1. **Entur API Integrasjon:**
    Inneholder en ferdigbygget GraphQL-klient (`EnturNetworkClient`) som kommuniserer med Entur Journey Planner v3. Den håndterer komplekse spørringer (som overgangen mellom transportdøgn og kalenderdøgn for natt-ruter) ut av boksen.
    
-2. **Ruting og Aktiv Venting:**
+2. **Ruting og Aktiv Overgang:**
    Inneholder logikken for å ta en gitt transportrute (`serviceJourneyId`) og brukerens nåværende posisjon, for deretter å beregne hvilket stopp på ruten brukeren burde gå til for å korte ned ventetiden.
    
 > **Merk om Omfang (Scope):** ActiveTransit-rammeverket er bygget spesifikt for en *allerede valgt* rute. Det utfører **ikke** Multi-Modal kryss-rute optimalisering (f.eks. å finne ut at det er raskere å gå til et annet stopp for å ta en *annen* bane). Slik optimalisering gjøres av det underliggende reiseplanlegger-søket (hos Entur) før denne modulen aktiveres.
