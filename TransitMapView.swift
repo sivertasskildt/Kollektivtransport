@@ -241,8 +241,6 @@ struct TransitMapView: View {
     }
 }
 
-}
-
 #Preview {
     TransitMapView(trip: TransitTrip(expectedStartTime: Date(), expectedEndTime: Date(), mainServiceJourneyId: "dummy-id", description: "Trikk 11", mode: "tram", destinationName: "Majorstuen"))
 }
