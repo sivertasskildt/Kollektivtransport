@@ -3,19 +3,21 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		02ED859330609F5E00153DC2 /* TripPlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02ED859230609F5E00153DC2 /* TripPlannerView.swift */; };
 		2E07C9FD4783B7204BA41AA4 /* KollektivApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85FB0D0B64C2C4750355D37A /* KollektivApp.swift */; };
 		7F3616DBA23352A75452A536 /* TransitMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F19852D1E87137D1AE6DB6EE /* TransitMapView.swift */; };
 		D3CBE45F38C1754BDCBE9CDA /* ActiveTransit in Frameworks */ = {isa = PBXBuildFile; productRef = 55C6ABE7E6DBED79A7084DE2 /* ActiveTransit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		02ED859230609F5E00153DC2 /* TripPlannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlannerView.swift; sourceTree = "<group>"; };
 		318109DB2FDCFB6875B0226B /* KollektivApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = KollektivApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		85FB0D0B64C2C4750355D37A /* KollektivApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KollektivApp.swift; sourceTree = "<group>"; };
-		D34F374DF35D4BF0E8E5E3A5 /* ActiveTransit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ActiveTransit; path = ActiveTransit; sourceTree = SOURCE_ROOT; };
+		D34F374DF35D4BF0E8E5E3A5 /* ActiveTransit */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ActiveTransit; sourceTree = SOURCE_ROOT; };
 		F19852D1E87137D1AE6DB6EE /* TransitMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitMapView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -53,6 +55,7 @@
 			isa = PBXGroup;
 			children = (
 				318109DB2FDCFB6875B0226B /* KollektivApp.app */,
+				02ED859230609F5E00153DC2 /* TripPlannerView.swift */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -87,8 +90,6 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
-				TargetAttributes = {
-				};
 			};
 			buildConfigurationList = F438694CC8D2CB4B681F22C9 /* Build configuration list for PBXProject "KollektivApp" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -117,6 +118,7 @@
 			files = (
 				2E07C9FD4783B7204BA41AA4 /* KollektivApp.swift in Sources */,
 				7F3616DBA23352A75452A536 /* TransitMapView.swift in Sources */,
+				02ED859330609F5E00153DC2 /* TripPlannerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

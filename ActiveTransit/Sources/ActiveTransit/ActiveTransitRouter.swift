@@ -30,6 +30,15 @@ public final class ActiveTransitRouter {
         return try await networkClient.fetchNearestActiveServiceJourney(currentLocation: currentLocation)
     }
     
+    /// Fetches transit trips between two coordinates.
+    /// - Parameters:
+    ///   - from: Starting coordinate.
+    ///   - to: Destination coordinate.
+    /// - Returns: An array of `TransitTrip`.
+    public func fetchTrips(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) async throws -> [TransitTrip] {
+        return try await networkClient.fetchTrips(from: from, to: to)
+    }
+    
     /// Finds the optimal transit stop to walk to based on the current position.
     ///
     /// - Parameters:

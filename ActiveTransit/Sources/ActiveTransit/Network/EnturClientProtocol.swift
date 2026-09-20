@@ -12,4 +12,11 @@ public protocol EnturClientProtocol {
     /// - Parameter currentLocation: The user's current location.
     /// - Returns: A service journey ID if found, otherwise nil.
     func fetchNearestActiveServiceJourney(currentLocation: CLLocation) async throws -> String?
+    
+    /// Fetches transit trips between two coordinates.
+    /// - Parameters:
+    ///   - from: Starting coordinate.
+    ///   - to: Destination coordinate.
+    /// - Returns: An array of `TransitTrip` representing the available trips.
+    func fetchTrips(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) async throws -> [TransitTrip]
 }

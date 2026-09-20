@@ -4,7 +4,7 @@ import SwiftUI
 struct KollektivApp: App {
     var body: some Scene {
         WindowGroup {
-            TransitMapView()
+            TripPlannerView()
         }
     }
 }

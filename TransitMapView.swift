@@ -51,11 +51,10 @@ struct TransitMapView: View {
     
     @StateObject private var locationManager = LocationManager()
     
-    // Konfigurer ruter med Entur HTTP-header (ET-Client-Name)
     private let router = ActiveTransitRouter(enturClientName: "kollektiv-ios-app")
     
-    // Vi fjerner den hardkodede id-en, den hentes nå dynamisk basert på lokasjon
-    // private let serviceJourneyId = "NSR:ServiceJourney:1234"
+    // Rute-ID-en sendes inn fra reiseplanleggeren
+    let serviceJourneyId: String
     
     var body: some View {
         ZStack {
@@ -141,22 +140,14 @@ struct TransitMapView: View {
         
         do {
             // For å vise alle stopp på kartet (som en bonus for context) bruker vi en underliggende
-            // nettverksklient, men for å vise optimalt stopp kaller vi findOptimalBoardingStop direkte.
             let networkClient = EnturNetworkClient(clientName: "kollektiv-ios-app")
             
-            // 1. Finn nærmeste aktive serviceJourney
-            guard let dynamicServiceJourneyId = try await networkClient.fetchNearestActiveServiceJourney(currentLocation: currentLocation) else {
-                self.errorMessage = "Fant ingen aktive ruter i nærheten av deg."
-                isLoading = false
-                return
-            }
+            // Vi henter alle stopp for den valgte reisen
+            async let fetchedStops = networkClient.fetchSubsequentStops(for: serviceJourneyId)
             
-            // 2. Vi henter alle stopp samtidig asynkront
-            async let fetchedStops = networkClient.fetchSubsequentStops(for: dynamicServiceJourneyId)
-            
-            // 3. Vi regner ut det optimale stoppet
+            // Vi regner ut det optimale stoppet for denne reisen
             async let calculatedOptimalStop = router.findOptimalBoardingStop(
-                for: dynamicServiceJourneyId,
+                for: serviceJourneyId,
                 currentPosition: currentLocation,
                 walkingSpeed: 1.4,
                 safetyMargin: 120, // 2 min margin
@@ -185,5 +176,5 @@ struct TransitMapView: View {
 }
 
 #Preview {
-    TransitMapView()
+    TransitMapView(serviceJourneyId: "dummy-id")
 }

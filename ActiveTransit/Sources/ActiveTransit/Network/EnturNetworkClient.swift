@@ -18,23 +18,32 @@ public final class EnturNetworkClient: EnturClientProtocol {
     
     public func fetchSubsequentStops(for serviceJourneyId: String) async throws -> [TransitStop] {
         let query = """
-        query getServiceJourney($id: String!) {
+        query getServiceJourney($id: String!, $today: String!, $yesterday: String!) {
           serviceJourney(id: $id) {
             id
-            estimatedCalls {
+            callsToday: estimatedCalls(date: $today) {
               expectedArrivalTime
-              quay {
-                id
-                name
-                latitude
-                longitude
-              }
+              quay { id name latitude longitude }
+            }
+            callsYesterday: estimatedCalls(date: $yesterday) {
+              expectedArrivalTime
+              quay { id name latitude longitude }
             }
           }
         }
         """
         
-        let variables: [String: Any] = ["id": serviceJourneyId]
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        
+        let todayStr = formatter.string(from: Date())
+        let yesterdayStr = formatter.string(from: Date().addingTimeInterval(-86400))
+        
+        let variables: [String: Any] = [
+            "id": serviceJourneyId,
+            "today": todayStr,
+            "yesterday": yesterdayStr
+        ]
         let requestBody: [String: Any] = [
             "query": query,
             "variables": variables
@@ -77,8 +86,15 @@ public final class EnturNetworkClient: EnturClientProtocol {
             throw ActiveTransitError.invalidServiceJourney
         }
         
+        // Plukk den listen som faktisk har data (løser natt-ruter problemet)
+        let calls = (serviceJourney.callsToday ?? []).isEmpty ? (serviceJourney.callsYesterday ?? []) : (serviceJourney.callsToday ?? [])
+        
+        if calls.isEmpty {
+            throw ActiveTransitError.invalidServiceJourney
+        }
+        
         // Map to Domain Models
-        let stops = serviceJourney.estimatedCalls.compactMap { call -> TransitStop? in
+        let stops = calls.compactMap { call -> TransitStop? in
             guard let expectedArrivalTime = call.expectedArrivalTime else { return nil }
             return TransitStop(
                 id: call.quay.id,
@@ -164,6 +180,102 @@ public final class EnturNetworkClient: EnturClientProtocol {
         
         return nil
     }
+    
+    public func fetchTrips(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) async throws -> [TransitTrip] {
+        let query = """
+        query getTrip($fromLat: Float!, $fromLon: Float!, $toLat: Float!, $toLon: Float!) {
+          trip(
+            from: {coordinates: {latitude: $fromLat, longitude: $fromLon}}
+            to: {coordinates: {latitude: $toLat, longitude: $toLon}}
+            numTripPatterns: 5
+          ) {
+            tripPatterns {
+              expectedStartTime
+              expectedEndTime
+              legs {
+                mode
+                line {
+                  publicCode
+                  name
+                }
+                serviceJourney {
+                  id
+                }
+              }
+            }
+          }
+        }
+        """
+        
+        let variables: [String: Any] = [
+            "fromLat": from.latitude,
+            "fromLon": from.longitude,
+            "toLat": to.latitude,
+            "toLon": to.longitude
+        ]
+        
+        let requestBody: [String: Any] = [
+            "query": query,
+            "variables": variables
+        ]
+        
+        var request = URLRequest(url: endpointURL)
+        request.httpMethod = "POST"
+        request.setValue(clientName, forHTTPHeaderField: "ET-Client-Name")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        } catch {
+            throw ActiveTransitError.networkError(error)
+        }
+        
+        let (data, response) = try await urlSession.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            throw ActiveTransitError.invalidResponse
+        }
+        
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        
+        let tripResponse: TripGraphQLResponse
+        do {
+            tripResponse = try decoder.decode(TripGraphQLResponse.self, from: data)
+        } catch {
+            throw ActiveTransitError.decodingError(error)
+        }
+        
+        if let errors = tripResponse.errors, !errors.isEmpty {
+            throw ActiveTransitError.graphQLError(errors.first?.message ?? "Unknown GraphQL Error")
+        }
+        
+        let patterns = tripResponse.data?.trip?.tripPatterns ?? []
+        
+        var trips: [TransitTrip] = []
+        for pattern in patterns {
+            // Find the first transit leg (not foot)
+            guard let transitLeg = pattern.legs.first(where: { $0.mode != "foot" && $0.serviceJourney != nil }),
+                  let serviceJourneyId = transitLeg.serviceJourney?.id else {
+                continue
+            }
+            
+            let lineName = transitLeg.line?.publicCode ?? transitLeg.line?.name ?? "Transport"
+            let desc = "\(lineName)"
+            
+            let trip = TransitTrip(
+                expectedStartTime: pattern.expectedStartTime,
+                expectedEndTime: pattern.expectedEndTime,
+                mainServiceJourneyId: serviceJourneyId,
+                description: desc
+            )
+            trips.append(trip)
+        }
+        
+        return trips
+    }
 }
 
 // MARK: - Internal DTOs
@@ -213,7 +325,43 @@ fileprivate struct NearestServiceJourney: Codable {
 
 fileprivate struct ServiceJourney: Codable {
     let id: String
-    let estimatedCalls: [EstimatedCall]
+    let callsToday: [EstimatedCall]?
+    let callsYesterday: [EstimatedCall]?
+}
+
+// Trip DTOs
+fileprivate struct TripGraphQLResponse: Codable {
+    let data: TripData?
+    let errors: [GraphQLError]?
+}
+
+fileprivate struct TripData: Codable {
+    let trip: TripConnection?
+}
+
+fileprivate struct TripConnection: Codable {
+    let tripPatterns: [TripPattern]
+}
+
+fileprivate struct TripPattern: Codable {
+    let expectedStartTime: Date
+    let expectedEndTime: Date
+    let legs: [TripLeg]
+}
+
+fileprivate struct TripLeg: Codable {
+    let mode: String
+    let line: TripLine?
+    let serviceJourney: TripServiceJourney?
+}
+
+fileprivate struct TripLine: Codable {
+    let publicCode: String?
+    let name: String?
+}
+
+fileprivate struct TripServiceJourney: Codable {
+    let id: String
 }
 
 fileprivate struct EstimatedCall: Codable {
