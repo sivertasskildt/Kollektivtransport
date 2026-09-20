@@ -18,7 +18,7 @@ public final class EnturNetworkClient: EnturClientProtocol {
     
     public func fetchSubsequentStops(for serviceJourneyId: String) async throws -> [TransitStop] {
         let query = """
-        query getServiceJourney($id: String!, $today: String!, $yesterday: String!) {
+        query getServiceJourney($id: String!, $today: Date, $yesterday: Date) {
           serviceJourney(id: $id) {
             id
             callsToday: estimatedCalls(date: $today) {

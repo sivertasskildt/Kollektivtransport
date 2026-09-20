@@ -4,6 +4,11 @@ Dette prosjektet er en komplett iOS-applikasjon og tilhørende rammeverk for **A
 
 *Aktiv Venting* er et konsept for kollektivtrafikken hvor brukerne, i stedet for å stå passivt og vente på et stoppested, får et forslag om å spasere til et stoppested lenger frem på ruten for å korte ned ventetiden, få mosjon og unngå kalde holdeplasser — uten å miste avgangen sin.
 
+### Aktiv Venting vs. Kryss-rute Optimalisering
+Viktig å bemerke: Dette rammeverket er et "mikro-optimaliseringsverktøy" for *etter* at du har valgt en spesifikk reise. 
+* **Kryss-rute optimalisering** (å sjekke om det er raskere å gå til et helt annet stopp for å ta en annen rute) håndteres av selve **Reiseplanleggeren** (Entur) når du gjør det opprinnelige søket fra A til B. Hvis det er raskere å gå 10 minutter for å ta en annen bane, vil Entur foreslå dette som det beste reisealternativet.
+* **Aktiv Venting** (dette prosjektet) trer i kraft *etter* at du har valgt ruten din, og hjelper deg med å holde deg i bevegelse langs den valgte ruten frem til transportmiddelet plukker deg opp.
+
 ## Prosjektstruktur
 
 Prosjektet består av to hoveddeler:

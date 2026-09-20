@@ -46,6 +46,7 @@ struct TransitMapView: View {
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var allStops: [TransitStop] = []
     @State private var optimalStop: TransitStop?
+    @State private var skippedStopsCount: Int?
     @State private var errorMessage: String?
     @State private var isLoading = false
     
@@ -104,6 +105,38 @@ struct TransitMapView: View {
                 locationManager.requestAuthorization()
             }
             
+            // Info Panel i bunnen
+            if let skipped = skippedStopsCount, skipped > 0 {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 16) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.green.opacity(0.2))
+                                .frame(width: 50, height: 50)
+                            Image(systemName: "figure.walk")
+                                .font(.title)
+                                .foregroundColor(.green)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Aktiv Venting")
+                                .font(.headline)
+                            Text("Du rekker å gå forbi \(skipped) stopp før avgangen din kommer!")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color(.systemBackground).opacity(0.95))
+                    .cornerRadius(16)
+                    .shadow(radius: 10)
+                    .padding()
+                }
+            }
+            
             // Loading Overlay
             if isLoading {
                 ProgressView("Beregner rute...")
@@ -139,30 +172,49 @@ struct TransitMapView: View {
         errorMessage = nil
         
         do {
-            // For å vise alle stopp på kartet (som en bonus for context) bruker vi en underliggende
             let networkClient = EnturNetworkClient(clientName: "kollektiv-ios-app")
             
-            // Vi henter alle stopp for den valgte reisen
-            async let fetchedStops = networkClient.fetchSubsequentStops(for: serviceJourneyId)
+            // 1. Hent alle stopp først, slik at vi garantert kan tegne dem opp
+            self.allStops = try await networkClient.fetchSubsequentStops(for: serviceJourneyId)
             
-            // Vi regner ut det optimale stoppet for denne reisen
-            async let calculatedOptimalStop = router.findOptimalBoardingStop(
-                for: serviceJourneyId,
-                currentPosition: currentLocation,
-                walkingSpeed: 1.4,
-                safetyMargin: 120, // 2 min margin
-                preciseWalkTimeProvider: nil
-            )
-            
-            self.allStops = try await fetchedStops
-            self.optimalStop = try await calculatedOptimalStop
-            
-            // Fokuser kameraet på det optimale stoppet
-            if let optimal = self.optimalStop {
-                let coord = CLLocationCoordinate2D(latitude: optimal.latitude, longitude: optimal.longitude)
-                withAnimation {
-                    self.cameraPosition = .region(MKCoordinateRegion(center: coord, latitudinalMeters: 1000, longitudinalMeters: 1000))
+            // 2. Prøv å beregne optimalt stopp
+            do {
+                self.optimalStop = try await router.findOptimalBoardingStop(
+                    for: serviceJourneyId,
+                    currentPosition: currentLocation,
+                    walkingSpeed: 1.4,
+                    safetyMargin: 120, // 2 min margin
+                    preciseWalkTimeProvider: nil
+                )
+                
+                // Fokuser kameraet på det optimale stoppet hvis vi fant et
+                if let optimal = self.optimalStop {
+                    // Regn ut hvor mange stopp vi går forbi
+                    let closestStop = self.allStops.min { a, b in
+                        let distA = CLLocation(latitude: a.latitude, longitude: a.longitude).distance(from: currentLocation)
+                        let distB = CLLocation(latitude: b.latitude, longitude: b.longitude).distance(from: currentLocation)
+                        return distA < distB
+                    }
+                    
+                    if let closest = closestStop,
+                       let closestIndex = self.allStops.firstIndex(where: { $0.id == closest.id }),
+                       let optimalIndex = self.allStops.firstIndex(where: { $0.id == optimal.id }),
+                       optimalIndex > closestIndex {
+                        self.skippedStopsCount = optimalIndex - closestIndex
+                    } else {
+                        self.skippedStopsCount = 0
+                    }
+                    
+                    let coord = CLLocationCoordinate2D(latitude: optimal.latitude, longitude: optimal.longitude)
+                    withAnimation {
+                        self.cameraPosition = .region(MKCoordinateRegion(center: coord, latitudinalMeters: 1000, longitudinalMeters: 1000))
+                    }
                 }
+            } catch ActiveTransitError.noBetterStopFound {
+                // Helt normalt scenario: Brukeren er allerede på det beste stoppet,
+                // eller det er for kort tid til å gå noen andre steder.
+                // Vi lar bare optimalStop være nil, og tegner opp de vanlige stoppene.
+                self.optimalStop = nil
             }
             
         } catch let error as ActiveTransitError {

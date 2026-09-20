@@ -11,6 +11,8 @@ Biblioteket er bygget uten bindinger til spesifikke UI-rammeverk (som SwiftUI el
    
 2. **Ruting og Aktiv Venting:**
    Inneholder logikken for å ta en gitt transportrute (`serviceJourneyId`) og brukerens nåværende posisjon, for deretter å beregne hvilket stopp på ruten brukeren burde gå til for å korte ned ventetiden.
+   
+> **Merk om Omfang (Scope):** ActiveTransit-rammeverket er bygget spesifikt for en *allerede valgt* rute. Det utfører **ikke** Multi-Modal kryss-rute optimalisering (f.eks. å finne ut at det er raskere å gå til et annet stopp for å ta en *annen* bane). Slik optimalisering gjøres av det underliggende reiseplanlegger-søket (hos Entur) før denne modulen aktiveres.
 
 ## Bruk
 

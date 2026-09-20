@@ -12,6 +12,10 @@ struct TripPlannerView: View {
     // For navigation to TransitMapView
     @State private var selectedServiceJourneyId: String?
     
+    // For Search
+    @State private var searchQuery = ""
+    @State private var searchResults: [MKMapItem] = []
+    
     private let router = ActiveTransitRouter(enturClientName: "kollektiv-ios-app")
     @StateObject private var locationManager = LocationManager()
     
@@ -43,6 +47,35 @@ struct TripPlannerView: View {
                     }
                 }
                 .ignoresSafeArea()
+                
+                // Search Results Overlay
+                if !searchResults.isEmpty {
+                    VStack {
+                        List(searchResults.indices, id: \.self) { index in
+                            let item = searchResults[index]
+                            Button {
+                                selectSearchResult(item)
+                            } label: {
+                                VStack(alignment: .leading) {
+                                    Text(item.name ?? "Ukjent sted")
+                                        .font(.body)
+                                    Text(item.placemark.title ?? "")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .listStyle(.plain)
+                        .background(Color(.systemBackground).opacity(0.95))
+                        .cornerRadius(12)
+                        .padding()
+                        .shadow(radius: 5)
+                        
+                        Spacer()
+                    }
+                    .zIndex(1)
+                }
                 
                 // Bottom Sheet / Panel
                 VStack(spacing: 16) {
@@ -127,6 +160,15 @@ struct TripPlannerView: View {
             .onAppear {
                 locationManager.requestAuthorization()
             }
+            .searchable(text: $searchQuery, prompt: "Søk etter sted eller adresse")
+            .onChange(of: searchQuery) { newValue in
+                if newValue.isEmpty {
+                    searchResults = []
+                }
+            }
+            .onSubmit(of: .search) {
+                performSearch()
+            }
         }
     }
     
@@ -167,5 +209,38 @@ struct TripPlannerView: View {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+    
+    private func performSearch() {
+        guard !searchQuery.isEmpty else { return }
+        
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = searchQuery
+        
+        // Prioriter søk i nærheten av brukeren
+        if let currentLoc = locationManager.location {
+            request.region = MKCoordinateRegion(center: currentLoc.coordinate, latitudinalMeters: 50000, longitudinalMeters: 50000)
+        }
+        
+        let search = MKLocalSearch(request: request)
+        search.start { response, error in
+            guard let response = response else {
+                self.errorMessage = "Klarte ikke å søke opp stedet."
+                return
+            }
+            self.searchResults = response.mapItems
+        }
+    }
+    
+    private func selectSearchResult(_ item: MKMapItem) {
+        let coordinate = item.placemark.coordinate
+        withAnimation {
+            self.destinationCoordinate = coordinate
+            self.position = .region(MKCoordinateRegion(center: coordinate, latitudinalMeters: 1000, longitudinalMeters: 1000))
+            self.searchResults = []
+            self.searchQuery = ""
+            self.trips = []
+            self.errorMessage = nil
+        }
     }
 }
