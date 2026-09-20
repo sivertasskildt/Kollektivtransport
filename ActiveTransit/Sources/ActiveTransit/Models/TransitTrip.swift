@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 
 /// Represents a public transit trip option from A to B.
-public struct TransitTrip: Identifiable, Equatable {
+public struct TransitTrip: Identifiable, Equatable, Hashable {
     public let id: String
     /// The expected departure time for this trip.
     public let expectedStartTime: Date
