@@ -46,6 +46,7 @@ struct TransitMapView: View {
     @State private var cameraPosition: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var allStops: [TransitStop] = []
     @State private var optimalStop: TransitStop?
+    @State private var closestStop: TransitStop?
     @State private var skippedStopsCount: Int?
     @State private var errorMessage: String?
     @State private var isLoading = false
@@ -68,10 +69,34 @@ struct TransitMapView: View {
                         .stroke(.blue, lineWidth: 5)
                 }
                 
-                // Tegn opp alle stopp
+                // Tegn opp nærmeste stopp (Startpunkt)
+                if let closest = closestStop, closest.id != optimalStop?.id {
+                    Annotation(closest.name, coordinate: CLLocationCoordinate2D(latitude: closest.latitude, longitude: closest.longitude)) {
+                        VStack {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.orange)
+                                    .frame(width: 32, height: 32)
+                                    .shadow(radius: 4)
+                                
+                                Image(systemName: "figure.wave")
+                                    .font(.caption)
+                                    .foregroundColor(.white)
+                            }
+                            Text("Gå hit")
+                                .font(.caption2)
+                                .bold()
+                                .padding(2)
+                                .background(Color.white.opacity(0.8))
+                                .cornerRadius(4)
+                        }
+                    }
+                }
+                
+                // Tegn opp alle andre stopp
                 ForEach(allStops, id: \.id) { stop in
-                    // Sjekk at det ikke er det optimale stoppet
-                    if stop.id != optimalStop?.id {
+                    // Sjekk at det ikke er det optimale stoppet eller nærmeste stoppet
+                    if stop.id != optimalStop?.id && stop.id != closestStop?.id {
                         Marker(stop.name, coordinate: CLLocationCoordinate2D(latitude: stop.latitude, longitude: stop.longitude))
                             .tint(.blue)
                     }
@@ -112,27 +137,34 @@ struct TransitMapView: View {
             }
             
             // Info Panel i bunnen
-            if let skipped = skippedStopsCount, skipped > 0 {
+            if let skipped = skippedStopsCount {
                 VStack {
                     Spacer()
                     HStack(spacing: 16) {
                         ZStack {
                             Circle()
-                                .fill(Color.green.opacity(0.2))
+                                .fill(skipped > 0 ? Color.green.opacity(0.2) : Color.orange.opacity(0.2))
                                 .frame(width: 50, height: 50)
-                            Image(systemName: "figure.walk")
+                            Image(systemName: skipped > 0 ? "figure.walk" : "hand.raised.fill")
                                 .font(.title)
-                                .foregroundColor(.green)
+                                .foregroundColor(skipped > 0 ? .green : .orange)
                         }
                         
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Aktiv Overgang")
+                            Text(skipped > 0 ? "Aktiv Overgang" : "Gå til stopp")
                                 .font(.headline)
-                            Text("Du rekker å gå forbi \(skipped) stopp før avgangen din kommer!")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                            if skipped > 0 {
+                                Text("Du rekker å gå forbi \(skipped) stopp før avgangen din kommer!")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            } else if let closest = closestStop {
+                                Text("Gå til \(closest.name). Du rekker ikke å gå lenger frem på ruten.")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
                         }
+                        .fixedSize(horizontal: false, vertical: true)
+                        
                         Spacer()
                     }
                     .padding()
@@ -191,6 +223,15 @@ struct TransitMapView: View {
                 self.allStops = fetchedStops
             }
             
+            // Regn ut nærmeste stopp (uansett om vi finner et optimalt gå-stopp eller ikke)
+            if !self.allStops.isEmpty {
+                self.closestStop = self.allStops.min { a, b in
+                    let distA = CLLocation(latitude: a.latitude, longitude: a.longitude).distance(from: currentLocation)
+                    let distB = CLLocation(latitude: b.latitude, longitude: b.longitude).distance(from: currentLocation)
+                    return distA < distB
+                }
+            }
+            
             // 2. Prøv å beregne optimalt stopp
             do {
                 self.optimalStop = try await router.findOptimalBoardingStop(
@@ -204,13 +245,7 @@ struct TransitMapView: View {
                 // Fokuser kameraet på det optimale stoppet hvis vi fant et
                 if let optimal = self.optimalStop {
                     // Regn ut hvor mange stopp vi går forbi
-                    let closestStop = self.allStops.min { a, b in
-                        let distA = CLLocation(latitude: a.latitude, longitude: a.longitude).distance(from: currentLocation)
-                        let distB = CLLocation(latitude: b.latitude, longitude: b.longitude).distance(from: currentLocation)
-                        return distA < distB
-                    }
-                    
-                    if let closest = closestStop,
+                    if let closest = self.closestStop,
                        let closestIndex = self.allStops.firstIndex(where: { $0.id == closest.id }),
                        let optimalIndex = self.allStops.firstIndex(where: { $0.id == optimal.id }),
                        optimalIndex > closestIndex {
@@ -225,10 +260,17 @@ struct TransitMapView: View {
                     }
                 }
             } catch ActiveTransitError.noBetterStopFound {
-                // Helt normalt scenario: Brukeren er allerede på det beste stoppet,
-                // eller det er for kort tid til å gå noen andre steder.
-                // Vi lar bare optimalStop være nil, og tegner opp de vanlige stoppene.
+                // Brukeren rekker ikke å gå lenger frem på ruten.
                 self.optimalStop = nil
+                self.skippedStopsCount = 0
+                
+                // Fokuser kameraet på det nærmeste stoppet
+                if let closest = self.closestStop {
+                    let coord = CLLocationCoordinate2D(latitude: closest.latitude, longitude: closest.longitude)
+                    withAnimation {
+                        self.cameraPosition = .region(MKCoordinateRegion(center: coord, latitudinalMeters: 1000, longitudinalMeters: 1000))
+                    }
+                }
             }
             
         } catch let error as ActiveTransitError {
