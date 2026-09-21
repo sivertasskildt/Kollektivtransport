@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		027779D13061AC010098FE1E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027779CF3061AC010098FE1E /* SettingsView.swift */; };
+		027779D23061AC010098FE1E /* UserSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027779D03061AC010098FE1E /* UserSettings.swift */; };
+		027779D33061AC010098FE1E /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027779CE3061AC010098FE1E /* LocationManager.swift */; };
+		027779D53061B4260098FE1E /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027779D43061B4260098FE1E /* OnboardingView.swift */; };
 		02ED859330609F5E00153DC2 /* TripPlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02ED859230609F5E00153DC2 /* TripPlannerView.swift */; };
 		2E07C9FD4783B7204BA41AA4 /* KollektivApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85FB0D0B64C2C4750355D37A /* KollektivApp.swift */; };
 		7F3616DBA23352A75452A536 /* TransitMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F19852D1E87137D1AE6DB6EE /* TransitMapView.swift */; };
@@ -14,8 +18,12 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		027779CE3061AC010098FE1E /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
+		027779CF3061AC010098FE1E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		027779D03061AC010098FE1E /* UserSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSettings.swift; sourceTree = "<group>"; };
+		027779D43061B4260098FE1E /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		02ED859230609F5E00153DC2 /* TripPlannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlannerView.swift; sourceTree = "<group>"; };
-		318109DB2FDCFB6875B0226B /* KollektivApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = KollektivApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		318109DB2FDCFB6875B0226B /* KollektivApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KollektivApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		85FB0D0B64C2C4750355D37A /* KollektivApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KollektivApp.swift; sourceTree = "<group>"; };
 		D34F374DF35D4BF0E8E5E3A5 /* ActiveTransit */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ActiveTransit; sourceTree = SOURCE_ROOT; };
 		F19852D1E87137D1AE6DB6EE /* TransitMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitMapView.swift; sourceTree = "<group>"; };
@@ -40,6 +48,10 @@
 				F19852D1E87137D1AE6DB6EE /* TransitMapView.swift */,
 				B3DD135879D5B9853DF814DA /* Packages */,
 				E59CD69CD69BD393086ADF59 /* Products */,
+				027779CE3061AC010098FE1E /* LocationManager.swift */,
+				027779CF3061AC010098FE1E /* SettingsView.swift */,
+				027779D03061AC010098FE1E /* UserSettings.swift */,
+				027779D43061B4260098FE1E /* OnboardingView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -118,7 +130,11 @@
 			files = (
 				2E07C9FD4783B7204BA41AA4 /* KollektivApp.swift in Sources */,
 				7F3616DBA23352A75452A536 /* TransitMapView.swift in Sources */,
+				027779D13061AC010098FE1E /* SettingsView.swift in Sources */,
+				027779D23061AC010098FE1E /* UserSettings.swift in Sources */,
+				027779D33061AC010098FE1E /* LocationManager.swift in Sources */,
 				02ED859330609F5E00153DC2 /* TripPlannerView.swift in Sources */,
+				027779D53061B4260098FE1E /* OnboardingView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -130,6 +146,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 8J2274H5H6;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -265,6 +282,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 8J2274H5H6;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

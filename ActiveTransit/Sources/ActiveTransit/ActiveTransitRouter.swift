@@ -33,8 +33,6 @@ public final class ActiveTransitRouter {
     /// Fetches transit trips between two coordinates.
     /// - Parameters:
     ///   - from: Starting coordinate.
-    ///   - to: Destination coordinate.
-    /// - Returns: An array of `TransitTrip`.
     public func fetchTrips(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) async throws -> [TransitTrip] {
         return try await networkClient.fetchTrips(from: from, to: to)
     }
@@ -52,6 +50,7 @@ public final class ActiveTransitRouter {
     public func findOptimalBoardingStop(
         for serviceJourneyId: String,
         currentPosition: CLLocation,
+        startTime: Date = Date(),
         walkingSpeed: Double = 1.4,
         safetyMargin: TimeInterval = 120,
         preciseWalkTimeProvider: PreciseWalkTimeProvider? = nil
@@ -59,7 +58,24 @@ public final class ActiveTransitRouter {
         // 1. Fetch subsequent stops for the service journey
         let stops = try await networkClient.fetchSubsequentStops(for: serviceJourneyId)
         
-        // 2. Ensure we received stops
+        return try await findOptimalBoardingStop(
+            stops: stops,
+            currentPosition: currentPosition,
+            startTime: startTime,
+            walkingSpeed: walkingSpeed,
+            safetyMargin: safetyMargin,
+            preciseWalkTimeProvider: preciseWalkTimeProvider
+        )
+    }
+    
+    public func findOptimalBoardingStop(
+        stops: [TransitStop],
+        currentPosition: CLLocation,
+        startTime: Date = Date(),
+        walkingSpeed: Double = 1.4,
+        safetyMargin: TimeInterval = 120,
+        preciseWalkTimeProvider: PreciseWalkTimeProvider? = nil
+    ) async throws -> TransitStop {
         guard !stops.isEmpty else {
             throw ActiveTransitError.invalidServiceJourney
         }
@@ -67,6 +83,7 @@ public final class ActiveTransitRouter {
         // 3. Calculate and return the optimal stop
         return try await router.calculateOptimalStop(
             currentPosition: currentPosition,
+            startTime: startTime,
             stops: stops,
             walkingSpeed: walkingSpeed,
             safetyMargin: safetyMargin,

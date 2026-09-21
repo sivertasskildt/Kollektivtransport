@@ -18,6 +18,7 @@ public protocol ActiveRoutingProtocol {
     /// - Throws: `ActiveTransitError` if no better stop could be found.
     func calculateOptimalStop(
         currentPosition: CLLocation,
+        startTime: Date,
         stops: [TransitStop],
         walkingSpeed: Double,
         safetyMargin: TimeInterval,

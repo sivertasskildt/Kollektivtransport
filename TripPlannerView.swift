@@ -17,11 +17,16 @@ struct TripPlannerView: View {
     @State private var searchResults: [MKMapItem] = []
     
     private let router = ActiveTransitRouter(enturClientName: "kollektiv-ios-app")
-    @StateObject private var locationManager = LocationManager()
+    @EnvironmentObject private var locationManager: LocationManager
+    @EnvironmentObject private var userSettings: UserSettings
+    
+    @State private var showSettings = false
+    
+    @State private var isSearchFocused = false
     
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
+            ZStack(alignment: .top) {
                 // Map
                 MapReader { reader in
                     Map(position: $position) {
@@ -45,12 +50,44 @@ struct TripPlannerView: View {
                             }
                         }
                     }
+                    .safeAreaPadding(.top, 160)
                 }
                 .ignoresSafeArea()
+                .safeAreaPadding(.top, 90)
                 
-                // Search Results Overlay
-                if !searchResults.isEmpty {
-                    VStack {
+                // Floating Search Card
+                VStack {
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.secondary)
+                        TextField("Søk etter sted eller adresse", text: $searchQuery)
+                            .onSubmit {
+                                performSearch()
+                            }
+                            .onChange(of: searchQuery) { newValue in
+                                if newValue.isEmpty {
+                                    searchResults = []
+                                }
+                            }
+                        if !searchQuery.isEmpty {
+                            Button {
+                                searchQuery = ""
+                                searchResults = []
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(12)
+                    .shadow(radius: 10)
+                    .padding(.horizontal)
+                    .padding(.top, 16)
+                    
+                    // Search Results
+                    if !searchResults.isEmpty {
                         List(searchResults.indices, id: \.self) { index in
                             let item = searchResults[index]
                             Button {
@@ -67,24 +104,24 @@ struct TripPlannerView: View {
                             .buttonStyle(.plain)
                         }
                         .listStyle(.plain)
-                        .background(Color(.systemBackground).opacity(0.95))
+                        .background(.ultraThinMaterial)
                         .cornerRadius(12)
-                        .padding()
-                        .shadow(radius: 5)
-                        
-                        Spacer()
+                        .padding(.horizontal)
+                        .frame(maxHeight: 250)
+                        .shadow(radius: 10)
                     }
-                    .zIndex(1)
                 }
+                .zIndex(2)
                 
                 // Bottom Sheet / Panel
-                VStack(spacing: 16) {
+                VStack {
+                    Spacer()
                     if destinationCoordinate == nil {
-                        Text("Trykk i kartet for å velge hvor du vil reise")
+                        Text("Trykk på kartet for å velge hvor du vil reise")
                             .font(.headline)
                             .padding()
                             .frame(maxWidth: .infinity)
-                            .background(Color(.systemBackground).opacity(0.9))
+                            .background(.ultraThinMaterial)
                             .cornerRadius(12)
                             .shadow(radius: 5)
                             .padding()
@@ -114,22 +151,32 @@ struct TripPlannerView: View {
                                             Button {
                                                 selectedTrip = trip
                                             } label: {
-                                                HStack {
-                                                    Text(modeEmoji(for: trip.mode))
-                                                        .font(.largeTitle)
+                                                HStack(spacing: 16) {
+                                                    Image(systemName: modeIcon(for: trip.mode))
+                                                        .font(.title)
+                                                        .foregroundColor(.blue)
                                                     
-                                                    VStack(alignment: .leading) {
+                                                    VStack(alignment: .leading, spacing: 4) {
                                                         Text(trip.description)
                                                             .font(.subheadline)
                                                             .bold()
-                                                        if let dest = trip.destinationName {
-                                                            Text("mot \(dest)")
-                                                                .font(.caption)
+                                                        
+                                                        HStack {
+                                                            Text("\(formatTime(trip.expectedStartTime)) - \(formatTime(trip.expectedEndTime))")
+                                                                .font(.subheadline)
+                                                            
+                                                            Text("(\(Int(trip.expectedEndTime.timeIntervalSince(trip.expectedStartTime) / 60)) min)")
+                                                                .font(.subheadline)
                                                                 .foregroundColor(.secondary)
                                                         }
-                                                        Text("\(formatTime(trip.expectedStartTime)) - \(formatTime(trip.expectedEndTime))")
+                                                        
+                                                        let bytter = trip.transitLegs.count > 1 ? trip.transitLegs.count - 1 : 0
+                                                        Text(bytter == 0 ? "Direkte" : "\(bytter) bytte(r)")
                                                             .font(.caption)
-                                                            .foregroundColor(.secondary)
+                                                            .padding(.horizontal, 6)
+                                                            .padding(.vertical, 2)
+                                                            .background(Color.secondary.opacity(0.2))
+                                                            .cornerRadius(4)
                                                     }
                                                     Spacer()
                                                     Image(systemName: "chevron.right")
@@ -153,7 +200,7 @@ struct TripPlannerView: View {
                             }
                         }
                         .padding()
-                        .background(Color(.systemBackground))
+                        .background(.ultraThinMaterial)
                         .cornerRadius(16)
                         .shadow(radius: 10)
                         .padding()
@@ -162,20 +209,26 @@ struct TripPlannerView: View {
             }
             .navigationTitle("Reiseplanlegger")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                            .foregroundColor(.primary)
+                    }
+                }
+            }
             .navigationDestination(item: $selectedTrip) { trip in
-                TransitMapView(trip: trip)
+                if let dest = destinationCoordinate {
+                    TransitMapView(trip: trip, destinationCoordinate: dest)
+                }
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
             }
             .onAppear {
                 locationManager.requestAuthorization()
-            }
-            .searchable(text: $searchQuery, prompt: "Søk etter sted eller adresse")
-            .onChange(of: searchQuery) { newValue in
-                if newValue.isEmpty {
-                    searchResults = []
-                }
-            }
-            .onSubmit(of: .search) {
-                performSearch()
             }
         }
     }
@@ -252,14 +305,14 @@ struct TripPlannerView: View {
         }
     }
     
-    private func modeEmoji(for mode: String) -> String {
+    private func modeIcon(for mode: String) -> String {
         switch mode.lowercased() {
-        case "bus": return "🚌"
-        case "tram": return "🚋"
-        case "metro": return "🚇"
-        case "rail": return "🚆"
-        case "water": return "⛴️"
-        default: return "🚍"
+        case "bus": return "bus.fill"
+        case "tram": return "tram.fill"
+        case "metro": return "t.circle.fill"
+        case "rail": return "train.side.front.car"
+        case "water": return "ferry.fill"
+        default: return "bus.fill"
         }
     }
 }

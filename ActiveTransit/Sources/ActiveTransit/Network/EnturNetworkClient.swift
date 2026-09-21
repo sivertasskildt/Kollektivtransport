@@ -194,6 +194,9 @@ public final class EnturNetworkClient: EnturClientProtocol {
               expectedEndTime
               legs {
                 mode
+                fromPlace {
+                  name
+                }
                 toPlace {
                   name
                 }
@@ -259,27 +262,43 @@ public final class EnturNetworkClient: EnturClientProtocol {
         
         var trips: [TransitTrip] = []
         for pattern in patterns {
-            // Find the first transit leg (not foot)
-            guard let transitLeg = pattern.legs.first(where: { $0.mode != "foot" && $0.serviceJourney != nil }),
-                  let serviceJourneyId = transitLeg.serviceJourney?.id else {
+            // Extract all transit legs
+            let transitLegs = pattern.legs.compactMap { leg -> TransitLeg? in
+                guard leg.mode != "foot", let sj = leg.serviceJourney else { return nil }
+                let name = leg.line?.publicCode ?? leg.line?.name ?? "Transport"
+                return TransitLeg(serviceJourneyId: sj.id, startName: leg.fromPlace?.name, destinationName: leg.toPlace?.name, mode: leg.mode, description: name)
+            }
+            
+            // Need at least one transit leg to proceed
+            guard let firstLeg = transitLegs.first else {
                 continue
             }
             
-            let lineName = transitLeg.line?.publicCode ?? transitLeg.line?.name ?? "Transport"
-            let desc = "\(lineName)"
-            let destName = transitLeg.toPlace?.name
-            let mode = transitLeg.mode
+            // The final destination is the destination of the last leg
+            let finalDestName = transitLegs.last?.destinationName
             
             let trip = TransitTrip(
                 expectedStartTime: pattern.expectedStartTime,
                 expectedEndTime: pattern.expectedEndTime,
-                mainServiceJourneyId: serviceJourneyId,
-                description: desc,
-                mode: mode,
-                destinationName: destName
+                mainServiceJourneyId: firstLeg.serviceJourneyId,
+                description: firstLeg.description,
+                mode: firstLeg.mode,
+                destinationName: finalDestName,
+                transitLegs: transitLegs
             )
-            trips.append(trip)
+            
+            // Deduplicate by mainServiceJourneyId: keep the one that arrives earliest
+            if let existingIndex = trips.firstIndex(where: { $0.mainServiceJourneyId == trip.mainServiceJourneyId }) {
+                if trip.expectedEndTime < trips[existingIndex].expectedEndTime {
+                    trips[existingIndex] = trip
+                }
+            } else {
+                trips.append(trip)
+            }
         }
+        
+        // Sort trips by arrival time (expectedEndTime)
+        trips.sort { $0.expectedEndTime < $1.expectedEndTime }
         
         return trips
     }
@@ -360,6 +379,7 @@ fileprivate struct TripLeg: Codable {
     let mode: String
     let line: TripLine?
     let serviceJourney: TripServiceJourney?
+    let fromPlace: TripPlace?
     let toPlace: TripPlace?
 }
 

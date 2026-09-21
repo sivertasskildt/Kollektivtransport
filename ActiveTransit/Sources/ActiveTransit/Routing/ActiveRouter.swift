@@ -11,6 +11,7 @@ public final class ActiveRouter: ActiveRoutingProtocol {
     
     public func calculateOptimalStop(
         currentPosition: CLLocation,
+        startTime: Date = Date(),
         stops: [TransitStop],
         walkingSpeed: Double = 1.4,
         safetyMargin: TimeInterval = 120,
@@ -18,9 +19,14 @@ public final class ActiveRouter: ActiveRoutingProtocol {
     ) async throws -> TransitStop {
         
         var bestStop: TransitStop?
-        let now = Date()
+        let now = startTime
         
         for stop in stops {
+            // Ignore stops that have already departed relative to our start time
+            if stop.expectedArrivalTime <= now {
+                continue
+            }
+            
             let straightLineDistance = currentPosition.distance(from: stop.location)
             let estimatedWalkingDistance = straightLineDistance * walkDistanceWiggleFactor
             let estimatedWalkingTime = estimatedWalkingDistance / walkingSpeed
@@ -29,8 +35,8 @@ public final class ActiveRouter: ActiveRoutingProtocol {
             
             if requiredArrivalTime < stop.expectedArrivalTime {
                 bestStop = stop
-            } else {
-                // Since stops are sequential, if we can't make it to this stop in time,
+            } else if bestStop != nil {
+                // Since stops are sequential, if we found at least one valid stop but can't make it to THIS stop in time,
                 // we likely won't make it to the subsequent stops either. Break the loop.
                 break
             }
