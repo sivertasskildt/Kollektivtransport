@@ -12,14 +12,14 @@ public struct TransitTrip: Identifiable, Equatable, Hashable {
     public let mainServiceJourneyId: String
     /// Text description of the trip (e.g. "Trikk 11 til Kjelsås").
     public let description: String
-    /// Mode of transportation (e.g. "bus", "tram", "metro")
-    public let mode: String
+    /// Mode of transportation (e.g. .bus, .tram, .metro)
+    public let mode: TransitMode
     /// The name of the final destination stop for this transit trip.
     public let destinationName: String?
     /// The legs that make up this transit trip.
     public let transitLegs: [TransitLeg]
     
-    public init(id: String = UUID().uuidString, expectedStartTime: Date, expectedEndTime: Date, mainServiceJourneyId: String, description: String, mode: String, destinationName: String?, transitLegs: [TransitLeg] = []) {
+    public init(id: String = UUID().uuidString, expectedStartTime: Date, expectedEndTime: Date, mainServiceJourneyId: String, description: String, mode: TransitMode, destinationName: String?, transitLegs: [TransitLeg] = []) {
         self.id = id
         self.expectedStartTime = expectedStartTime
         self.expectedEndTime = expectedEndTime

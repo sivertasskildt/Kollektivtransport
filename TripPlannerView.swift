@@ -3,6 +3,7 @@ import MapKit
 import ActiveTransit
 
 struct TripPlannerView: View {
+    @Namespace var mapScope
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
     @State private var destinationCoordinate: CLLocationCoordinate2D?
     @State private var trips: [TransitTrip] = []
@@ -15,6 +16,7 @@ struct TripPlannerView: View {
     // For Search
     @State private var searchQuery = ""
     @State private var searchResults: [MKMapItem] = []
+    @State private var searchTask: Task<Void, Never>?
     
     private let router = ActiveTransitRouter(enturClientName: "kollektiv-ios-app")
     @EnvironmentObject private var locationManager: LocationManager
@@ -29,17 +31,13 @@ struct TripPlannerView: View {
             ZStack(alignment: .top) {
                 // Map
                 MapReader { reader in
-                    Map(position: $position) {
+                    Map(position: $position, scope: mapScope) {
                         UserAnnotation()
                         
                         if let dest = destinationCoordinate {
                             Marker("Destinasjon", coordinate: dest)
                                 .tint(.blue)
                         }
-                    }
-                    .mapControls {
-                        MapUserLocationButton()
-                        MapCompass()
                     }
                     .onTapGesture { screenCoordinate in
                         if let location = reader.convert(screenCoordinate, from: .local) {
@@ -50,10 +48,8 @@ struct TripPlannerView: View {
                             }
                         }
                     }
-                    .safeAreaPadding(.top, 160)
                 }
                 .ignoresSafeArea()
-                .safeAreaPadding(.top, 90)
                 
                 // Floating Search Card
                 VStack {
@@ -65,8 +61,15 @@ struct TripPlannerView: View {
                                 performSearch()
                             }
                             .onChange(of: searchQuery) { newValue in
+                                searchTask?.cancel()
                                 if newValue.isEmpty {
                                     searchResults = []
+                                } else {
+                                    searchTask = Task {
+                                        try? await Task.sleep(nanoseconds: 300_000_000)
+                                        guard !Task.isCancelled else { return }
+                                        await MainActor.run { performSearch() }
+                                    }
                                 }
                             }
                         if !searchQuery.isEmpty {
@@ -88,34 +91,54 @@ struct TripPlannerView: View {
                     
                     // Search Results
                     if !searchResults.isEmpty {
-                        List(searchResults.indices, id: \.self) { index in
-                            let item = searchResults[index]
-                            Button {
-                                selectSearchResult(item)
-                            } label: {
-                                VStack(alignment: .leading) {
-                                    Text(item.name ?? "Ukjent sted")
-                                        .font(.body)
-                                    Text(item.placemark.title ?? "")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(searchResults.prefix(5).indices, id: \.self) { index in
+                                let item = searchResults[index]
+                                Button {
+                                    selectSearchResult(item)
+                                } label: {
+                                    VStack(alignment: .leading) {
+                                        Text(item.name ?? "Ukjent sted")
+                                            .font(.body)
+                                        Text(item.placemark.title ?? "")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .padding(.vertical, 10)
+                                    .padding(.horizontal, 16)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .buttonStyle(.plain)
+                                
+                                if index < min(searchResults.count, 5) - 1 {
+                                    Divider().padding(.horizontal, 16)
                                 }
                             }
-                            .buttonStyle(.plain)
                         }
-                        .listStyle(.plain)
                         .background(.ultraThinMaterial)
                         .cornerRadius(12)
                         .padding(.horizontal)
-                        .frame(maxHeight: 250)
                         .shadow(radius: 10)
                     }
                 }
                 .zIndex(2)
                 
-                // Bottom Sheet / Panel
-                VStack {
+                // Map Controls & Bottom Sheet (Combined)
+                VStack(spacing: 16) {
                     Spacer()
+                    
+                    // Map Controls
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 10) {
+                            MapCompass(scope: mapScope)
+                            MapUserLocationButton(scope: mapScope)
+                        }
+                        .buttonBorderShape(.circle)
+                        .padding(.trailing, 16)
+                    }
+                    
+                    // Bottom Sheet / Panel
                     if destinationCoordinate == nil {
                         Text("Trykk på kartet for å velge hvor du vil reise")
                             .font(.headline)
@@ -124,7 +147,8 @@ struct TripPlannerView: View {
                             .background(.ultraThinMaterial)
                             .cornerRadius(12)
                             .shadow(radius: 5)
-                            .padding()
+                            .padding(.horizontal)
+                            .padding(.bottom)
                     } else {
                         VStack(spacing: 16) {
                             if trips.isEmpty && !isLoadingTrips {
@@ -203,9 +227,11 @@ struct TripPlannerView: View {
                         .background(.ultraThinMaterial)
                         .cornerRadius(16)
                         .shadow(radius: 10)
-                        .padding()
+                        .padding(.horizontal)
+                        .padding(.bottom)
                     }
                 }
+                .zIndex(3)
             }
             .navigationTitle("Reiseplanlegger")
             .navigationBarTitleDisplayMode(.inline)
@@ -231,6 +257,7 @@ struct TripPlannerView: View {
                 locationManager.requestAuthorization()
             }
         }
+        .mapScope(mapScope)
     }
     
     private func searchTrips() {
@@ -289,7 +316,25 @@ struct TripPlannerView: View {
                 self.errorMessage = "Klarte ikke å søke opp stedet."
                 return
             }
-            self.searchResults = response.mapItems
+            // Filtrer slik at vi kun viser resultater fra Norge
+            var filtered = response.mapItems.filter { item in
+                let countryCode = item.placemark.countryCode
+                let country = item.placemark.country
+                return countryCode == "NO" || country == "Norway" || country == "Norge" || countryCode == nil
+            }
+            
+            // Sorter etter avstand fra brukeren
+            if let userLoc = self.locationManager.location {
+                filtered.sort { item1, item2 in
+                    let loc1 = item1.placemark.location
+                    let loc2 = item2.placemark.location
+                    let dist1 = loc1?.distance(from: userLoc) ?? Double.greatestFiniteMagnitude
+                    let dist2 = loc2?.distance(from: userLoc) ?? Double.greatestFiniteMagnitude
+                    return dist1 < dist2
+                }
+            }
+            
+            self.searchResults = filtered
         }
     }
     
@@ -305,13 +350,14 @@ struct TripPlannerView: View {
         }
     }
     
-    private func modeIcon(for mode: String) -> String {
-        switch mode.lowercased() {
-        case "bus": return "bus.fill"
-        case "tram": return "tram.fill"
-        case "metro": return "t.circle.fill"
-        case "rail": return "train.side.front.car"
-        case "water": return "ferry.fill"
+    private func modeIcon(for mode: TransitMode) -> String {
+        switch mode {
+        case .bus: return "bus.fill"
+        case .tram: return "tram.fill"
+        case .metro: return "t.circle.fill"
+        case .rail: return "train.side.front.car"
+        case .water: return "ferry.fill"
+        case .foot: return "figure.walk"
         default: return "bus.fill"
         }
     }

@@ -264,7 +264,7 @@ public final class EnturNetworkClient: EnturClientProtocol {
         for pattern in patterns {
             // Extract all transit legs
             let transitLegs = pattern.legs.compactMap { leg -> TransitLeg? in
-                guard leg.mode != "foot", let sj = leg.serviceJourney else { return nil }
+                guard leg.mode != .foot, let sj = leg.serviceJourney else { return nil }
                 let name = leg.line?.publicCode ?? leg.line?.name ?? "Transport"
                 return TransitLeg(serviceJourneyId: sj.id, startName: leg.fromPlace?.name, destinationName: leg.toPlace?.name, mode: leg.mode, description: name)
             }
@@ -376,7 +376,7 @@ fileprivate struct TripPattern: Codable {
 }
 
 fileprivate struct TripLeg: Codable {
-    let mode: String
+    let mode: TransitMode
     let line: TripLine?
     let serviceJourney: TripServiceJourney?
     let fromPlace: TripPlace?
