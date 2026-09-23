@@ -12,6 +12,7 @@
 		027779D33061AC010098FE1E /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027779CE3061AC010098FE1E /* LocationManager.swift */; };
 		027779D53061B4260098FE1E /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027779D43061B4260098FE1E /* OnboardingView.swift */; };
 		0298D1F030647B100020F1D8 /* TransitMapViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0298D1EF30647B100020F1D8 /* TransitMapViewModel.swift */; };
+		0298D1F330648C250020F1D8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0298D1F130648B2F0020F1D8 /* Assets.xcassets */; };
 		02ED859330609F5E00153DC2 /* TripPlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02ED859230609F5E00153DC2 /* TripPlannerView.swift */; };
 		2E07C9FD4783B7204BA41AA4 /* KollektivApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85FB0D0B64C2C4750355D37A /* KollektivApp.swift */; };
 		7F3616DBA23352A75452A536 /* TransitMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F19852D1E87137D1AE6DB6EE /* TransitMapView.swift */; };
@@ -24,6 +25,7 @@
 		027779D03061AC010098FE1E /* UserSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSettings.swift; sourceTree = "<group>"; };
 		027779D43061B4260098FE1E /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		0298D1EF30647B100020F1D8 /* TransitMapViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitMapViewModel.swift; sourceTree = "<group>"; };
+		0298D1F130648B2F0020F1D8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		02ED859230609F5E00153DC2 /* TripPlannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlannerView.swift; sourceTree = "<group>"; };
 		318109DB2FDCFB6875B0226B /* KollektivApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KollektivApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		85FB0D0B64C2C4750355D37A /* KollektivApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KollektivApp.swift; sourceTree = "<group>"; };
@@ -46,6 +48,7 @@
 		AD65AC8F96738F67FE1BC4D3 = {
 			isa = PBXGroup;
 			children = (
+				0298D1F130648B2F0020F1D8 /* Assets.xcassets */,
 				85FB0D0B64C2C4750355D37A /* KollektivApp.swift */,
 				F19852D1E87137D1AE6DB6EE /* TransitMapView.swift */,
 				B3DD135879D5B9853DF814DA /* Packages */,
@@ -84,6 +87,7 @@
 			buildPhases = (
 				E1ACDDD7348C6412C0052D86 /* Sources */,
 				256AB16A6B5533EE9463E108 /* Frameworks */,
+				0298D1F230648C100020F1D8 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -126,6 +130,17 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		0298D1F230648C100020F1D8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0298D1F330648C250020F1D8 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		E1ACDDD7348C6412C0052D86 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -156,7 +171,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.KollektivApp;
+				PRODUCT_BUNDLE_IDENTIFIER = AktivOvergang;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -292,7 +307,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.KollektivApp;
+				PRODUCT_BUNDLE_IDENTIFIER = AktivOvergang;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
