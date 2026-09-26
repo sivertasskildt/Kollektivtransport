@@ -4,36 +4,7 @@ import CoreLocation
 import ActiveTransit
 
 // LocationManager er nå flyttet til LocationManager.swift
-
-// MARK: - Itinerary UI Model
-struct ItineraryLeg: Identifiable {
-    let id = UUID()
-    let legIndex: Int
-    let mode: TransitMode
-    let lineDescription: String
-    
-    // Venting før denne etappen (nil for aller første etappe)
-    let waitTimeMinutes: Int?
-    let transferStationName: String?
-    
-    // Gå-informasjon (Aktiv Overgang)
-    let optimalBoardingStop: TransitStop?
-    let skippedStopsCount: Int
-    
-    // Påstigning
-    let boardingStopName: String
-    let boardingTime: Date?
-    
-    // Avstigning
-    let alightingStopName: String
-    let alightingTime: Date?
-}
-
-// MARK: - Walking Route UI Model
-struct WalkingRoute: Identifiable {
-    let id = UUID()
-    let route: MKRoute
-}
+// ItineraryLeg og WalkingRoute er nå flyttet til ItineraryModels.swift
 
 struct TransitMapView: View {
     @StateObject private var viewModel = TransitMapViewModel()
@@ -45,6 +16,7 @@ struct TransitMapView: View {
     // Reisen sendes inn fra reiseplanleggeren
     let trip: TransitTrip
     var destinationCoordinate: CLLocationCoordinate2D? = nil
+    var startCoordinate: CLLocationCoordinate2D? = nil
     
     var body: some View {
         ZStack {
@@ -61,39 +33,15 @@ struct TransitMapView: View {
                 
                 // Tegn opp gå-ruter (Aktiv Overgang)
                 ForEach(viewModel.walkingRoutes) { walkingRoute in
-                    MapPolyline(walkingRoute.route.polyline)
+                    MapPolyline(walkingRoute.polyline)
                         .stroke(.green, style: StrokeStyle(lineWidth: 4, dash: [6, 6]))
                 }
                 
-                // Tegn opp nærmeste stopp (Startpunkt)
-                if let closest = viewModel.closestStop, !viewModel.optimalStops.values.contains(where: { $0.id == closest.id }) {
-                    Annotation(closest.name, coordinate: CLLocationCoordinate2D(latitude: closest.latitude, longitude: closest.longitude)) {
-                        VStack {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.orange)
-                                    .frame(width: 32, height: 32)
-                                    .shadow(radius: 4)
-                                
-                                Image(systemName: "figure.wave")
-                                    .font(.caption)
-                                    .foregroundColor(.white)
-                            }
-                            Text(viewModel.optimalStops.isEmpty ? "Gå hit (Aktiv Overgang)" : "Start")
-                                .font(.caption2)
-                                .bold()
-                                .foregroundColor(.black)
-                                .padding(2)
-                                .background(Color.white.opacity(0.9))
-                                .cornerRadius(4)
-                        }
-                    }
-                }
+
                 
                 // Tegn opp alle andre stopp
-                ForEach(viewModel.allStops, id: \.id) { stop in
+                ForEach(viewModel.allStops) { stop in
                     if !viewModel.optimalStops.values.contains(where: { $0.id == stop.id }) && 
-                       stop.id != viewModel.closestStop?.id && 
                        !viewModel.transferStops.contains(where: { $0.id == stop.id }) {
                         
                         Annotation(stop.name, coordinate: CLLocationCoordinate2D(latitude: stop.latitude, longitude: stop.longitude)) {
@@ -102,13 +50,14 @@ struct TransitMapView: View {
                                 .frame(width: 12, height: 12)
                                 .overlay(Circle().stroke(Color.white, lineWidth: 2))
                                 .shadow(radius: 2)
+                                .accessibilityLabel("Stopp: \(stop.name)")
                         }
                     }
                 }
                 
                 // Tegn opp overganger (Bytte)
-                ForEach(viewModel.transferStops, id: \.id) { stop in
-                    if !viewModel.optimalStops.values.contains(where: { $0.id == stop.id }) && stop.id != viewModel.closestStop?.id {
+                ForEach(viewModel.transferStops) { stop in
+                    if !viewModel.optimalStops.values.contains(where: { $0.id == stop.id }) {
                         Annotation(stop.name, coordinate: CLLocationCoordinate2D(latitude: stop.latitude, longitude: stop.longitude)) {
                             VStack {
                                 ZStack {
@@ -124,11 +73,13 @@ struct TransitMapView: View {
                                 Text("Bytt her")
                                     .font(.caption2)
                                     .bold()
-                                    .foregroundColor(.black)
+                                    .foregroundColor(.primary)
                                     .padding(2)
-                                    .background(Color.white.opacity(0.9))
+                                    .background(.ultraThinMaterial)
                                     .cornerRadius(4)
                             }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel("Bytt transport ved \(stop.name)")
                         }
                     }
                 }
@@ -150,11 +101,13 @@ struct TransitMapView: View {
                             Text("Destinasjon")
                                 .font(.caption2)
                                 .bold()
-                                .foregroundColor(.black)
+                                .foregroundColor(.primary)
                                 .padding(2)
-                                .background(Color.white.opacity(0.9))
+                                .background(.ultraThinMaterial)
                                 .cornerRadius(4)
                         }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Destinasjon")
                     }
                 }
                 
@@ -173,14 +126,16 @@ struct TransitMapView: View {
                                     .foregroundColor(.white)
                             }
                             
-                            Text("Gå hit (Aktiv Overgang)")
+                            Text(optimal.id == viewModel.closestStop?.id ? "Gå hit" : "Gå hit (Aktiv Overgang)")
                                 .font(.caption)
                                 .bold()
-                                .foregroundColor(.black)
+                                .foregroundColor(.primary)
                                 .padding(4)
-                                .background(Color.white.opacity(0.8))
+                                .background(.ultraThinMaterial)
                                 .cornerRadius(4)
                         }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("Gå til \(optimal.name) for aktiv overgang")
                     }
                 }
             }
@@ -188,8 +143,6 @@ struct TransitMapView: View {
             .onAppear {
                 locationManager.requestAuthorization()
             }
-            
-            // Fjernet MapControls for å gi mer plass til kartet når ruten vises
             
             // Loading Overlay
             if viewModel.isLoading {
@@ -199,30 +152,67 @@ struct TransitMapView: View {
                     .cornerRadius(10)
             }
             
-            // Feilmelding
+            // Feilmelding med "Prøv igjen"-knapp (#19)
             if let error = viewModel.errorMessage {
-                VStack {
+                VStack(spacing: 12) {
                     Text(error)
                         .foregroundColor(.white)
-                        .padding()
-                        .background(Color.red.opacity(0.9))
-                        .cornerRadius(8)
-                    Spacer()
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                    
+                    Button {
+                        viewModel.retry()
+                        let location = startCoordinate.map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) } ?? locationManager.location
+                        if let loc = location {
+                            Task {
+                                await viewModel.fetchActiveTransitRoute(
+                                    currentLocation: loc,
+                                    trip: trip,
+                                    destinationCoordinate: destinationCoordinate,
+                                    userSettings: userSettings
+                                )
+                            }
+                        }
+                    } label: {
+                        Label("Prøv igjen", systemImage: "arrow.clockwise")
+                            .font(.subheadline)
+                            .bold()
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.white.opacity(0.25))
+                            .cornerRadius(8)
+                    }
+                    .accessibilityLabel("Prøv å laste ruten på nytt")
                 }
+                .padding()
+                .background(Color.red.opacity(0.9))
+                .cornerRadius(12)
+                .padding(.horizontal, 24)
                 .padding(.top, 50)
+                .frame(maxHeight: .infinity, alignment: .top)
             }
         }
         .mapScope(mapScope)
         // Kjør ruteberegning når brukerens posisjon er funnet (kun første gang)
         .task(id: locationManager.location) {
-            guard let location = locationManager.location, !viewModel.hasFetchedRoute else { return }
-            await viewModel.fetchActiveTransitRoute(currentLocation: location, trip: trip, destinationCoordinate: destinationCoordinate, userSettings: userSettings)
+            guard !viewModel.hasFetchedRoute else { return }
+            let location = startCoordinate.map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) } ?? locationManager.location
+            guard let loc = location else { return }
+            await viewModel.fetchActiveTransitRoute(currentLocation: loc, trip: trip, destinationCoordinate: destinationCoordinate, userSettings: userSettings)
         }
         .sheet(isPresented: $viewModel.showItinerarySheet) {
             ItineraryListView(itinerary: viewModel.itinerary, isLoading: viewModel.isLoading)
                 .presentationDetents([.height(120), .medium, .large])
                 .presentationBackgroundInteraction(.enabled(upThrough: .medium))
                 .interactiveDismissDisabled()
+        }
+        // Haptic feedback når optimal stopp er funnet (#15)
+        .onChange(of: viewModel.optimalStops.count) { _, newCount in
+            if newCount > 0 {
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
+            }
         }
     }
 }
@@ -239,6 +229,7 @@ struct ItineraryListView: View {
                 Text("Reiseplan")
                     .font(.headline)
                     .padding()
+                    .accessibilityAddTraits(.isHeader)
                 if let first = itinerary.first?.boardingTime, let last = itinerary.last?.alightingTime {
                     let diff = Int(last.timeIntervalSince(first) / 60)
                     Text("\(diff) min totalt")
@@ -252,6 +243,7 @@ struct ItineraryListView: View {
                 if isLoading {
                     ProgressView()
                         .padding(.trailing)
+                        .accessibilityLabel("Laster reiseplan")
                 }
             }
             
@@ -303,13 +295,15 @@ struct ItineraryLegView: View {
                         }
                     }
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Bytt på \(station). Ventetid \(waitTime) minutter")
             }
             
             // Etappen
             HStack(alignment: .top, spacing: 16) {
                 VStack {
-                    Image(systemName: modeIcon(for: leg.mode))
-                        .foregroundColor(leg.mode == .foot ? .green : .blue)
+                    Image(systemName: leg.mode.iconName)
+                        .foregroundColor(leg.mode.accentColor)
                     Rectangle().fill(leg.mode == .foot ? Color.green : Color.blue).frame(width: 2, height: 40)
                 }
                 
@@ -344,19 +338,24 @@ struct ItineraryLegView: View {
                     }
                 }
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(legAccessibilityLabel)
         }
     }
     
-    private func modeIcon(for mode: TransitMode) -> String {
-        switch mode {
-        case .bus: return "bus.fill"
-        case .tram: return "tram.fill"
-        case .metro: return "t.circle.fill"
-        case .rail: return "train.side.front.car"
-        case .water: return "ferry.fill"
-        case .foot: return "figure.walk"
-        default: return "bus.fill"
+    /// Builds a comprehensive VoiceOver label for this leg.
+    private var legAccessibilityLabel: String {
+        var parts: [String] = []
+        parts.append(leg.lineDescription)
+        parts.append("fra \(leg.boardingStopName)")
+        if let bTime = leg.boardingTime {
+            parts.append("klokken \(bTime.formatted(date: .omitted, time: .shortened))")
         }
+        parts.append("til \(leg.alightingStopName)")
+        if let aTime = leg.alightingTime {
+            parts.append("klokken \(aTime.formatted(date: .omitted, time: .shortened))")
+        }
+        return parts.joined(separator: ", ")
     }
 }
 

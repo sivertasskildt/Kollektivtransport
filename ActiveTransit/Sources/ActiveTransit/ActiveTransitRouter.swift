@@ -37,6 +37,13 @@ public final class ActiveTransitRouter {
         return try await networkClient.fetchTrips(from: from, to: to)
     }
     
+    /// Fetches the subsequent stops for a given service journey.
+    /// - Parameter serviceJourneyId: The ID of the service journey (from Entur).
+    /// - Returns: An array of `TransitStop` representing the upcoming stops.
+    public func fetchSubsequentStops(for serviceJourneyId: String) async throws -> [TransitStop] {
+        return try await networkClient.fetchSubsequentStops(for: serviceJourneyId)
+    }
+    
     /// Finds the optimal transit stop to walk to based on the current position.
     ///
     /// - Parameters:

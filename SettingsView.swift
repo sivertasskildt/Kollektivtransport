@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var userSettings: UserSettings
+    @EnvironmentObject var favoritesManager: FavoritesManager
     
     var body: some View {
         NavigationStack {
@@ -22,7 +23,26 @@ struct SettingsView: View {
                         Text("30 sekunder").tag(30.0)
                         Text("1 minutt").tag(60.0)
                         Text("2 minutter").tag(120.0)
-                        Text("3 minutter").tag(180.0)
+                    }
+                }
+                
+                Section(header: Text("Favoritter")) {
+                    if favoritesManager.favorites.isEmpty {
+                        Text("Ingen lagrede favoritter.")
+                            .foregroundColor(.secondary)
+                    } else {
+                        ForEach(favoritesManager.favorites) { favorite in
+                            HStack {
+                                Image(systemName: favorite.type.iconName)
+                                    .foregroundColor(.blue)
+                                Text(favorite.name)
+                            }
+                        }
+                        .onDelete { indexSet in
+                            for index in indexSet {
+                                favoritesManager.remove(favoritesManager.favorites[index])
+                            }
+                        }
                     }
                 }
             }
@@ -32,6 +52,11 @@ struct SettingsView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Ferdig") {
                         dismiss()
+                    }
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    if !favoritesManager.favorites.isEmpty {
+                        EditButton()
                     }
                 }
             }

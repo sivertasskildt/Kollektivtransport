@@ -2,10 +2,23 @@ import SwiftUI
 import MapKit
 import ActiveTransit
 
+enum SearchFocus: Hashable {
+    case from
+    case to
+}
+
 struct TripPlannerView: View {
     @Namespace var mapScope
     @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
+    
+    @State private var startCoordinate: CLLocationCoordinate2D?
+    @State private var startName: String = "Min posisjon"
+    @State private var searchQueryFrom = ""
+    
     @State private var destinationCoordinate: CLLocationCoordinate2D?
+    @State private var destinationName: String = "Valgt sted"
+    @State private var searchQueryTo = ""
+    
     @State private var trips: [TransitTrip] = []
     @State private var isLoadingTrips = false
     @State private var errorMessage: String?
@@ -14,17 +27,19 @@ struct TripPlannerView: View {
     @State private var selectedTrip: TransitTrip?
     
     // For Search
-    @State private var searchQuery = ""
     @State private var searchResults: [MKMapItem] = []
     @State private var searchTask: Task<Void, Never>?
+    @FocusState private var searchFocus: SearchFocus?
     
     private let router = ActiveTransitRouter(enturClientName: "kollektiv-ios-app")
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var userSettings: UserSettings
+    @EnvironmentObject private var favoritesManager: FavoritesManager
     
     @State private var showSettings = false
-    
-    @State private var isSearchFocused = false
+    @State private var showSaveFavoriteSheet = false
+    @State private var isEditingStartLocation = false
+    @State private var showTripListSheet = false
     
     var body: some View {
         NavigationStack {
@@ -34,68 +49,182 @@ struct TripPlannerView: View {
                     Map(position: $position, scope: mapScope) {
                         UserAnnotation()
                         
+                        if let start = startCoordinate ?? locationManager.location?.coordinate {
+                            Marker("Start", coordinate: start)
+                                .tint(.green)
+                        }
+                        
                         if let dest = destinationCoordinate {
                             Marker("Destinasjon", coordinate: dest)
                                 .tint(.blue)
                         }
                     }
                     .onTapGesture { screenCoordinate in
+                        // Hvis brukeren holder på med et søk, skal trykk på kartet kun lukke tastaturet/søket
+                        if searchFocus != nil || isEditingStartLocation {
+                            withAnimation {
+                                searchFocus = nil
+                                isEditingStartLocation = false
+                            }
+                            return
+                        }
+                        
                         if let location = reader.convert(screenCoordinate, from: .local) {
                             withAnimation {
                                 destinationCoordinate = location
+                                destinationName = "Kartposisjon"
+                                searchQueryTo = ""
+                                searchFocus = nil
+                                searchResults = []
                                 trips = []
                                 errorMessage = nil
+                                showTripListSheet = true
                             }
                         }
                     }
                 }
                 .ignoresSafeArea()
                 
-                // Floating Search Card
-                VStack {
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(.secondary)
-                        TextField("Søk etter sted eller adresse", text: $searchQuery)
-                            .onSubmit {
-                                performSearch()
+                // Floating Search Area
+                VStack(spacing: 8) {
+                    // Collapsed "Fra"-knapp (uten bakgrunn, over søkefeltet)
+                    if !isEditingStartLocation && startCoordinate == nil {
+                        HStack {
+                            Button {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    isEditingStartLocation = true
+                                    searchFocus = .from
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "location.fill")
+                                    Text("Fra: Min posisjon")
+                                }
+                                .font(.subheadline.bold())
+                                .foregroundColor(.blue)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(.ultraThinMaterial)
+                                .cornerRadius(12)
+                                .shadow(color: Color.black.opacity(0.15), radius: 5)
                             }
-                            .onChange(of: searchQuery) { newValue in
-                                searchTask?.cancel()
-                                if newValue.isEmpty {
-                                    searchResults = []
-                                } else {
-                                    searchTask = Task {
-                                        try? await Task.sleep(nanoseconds: 300_000_000)
-                                        guard !Task.isCancelled else { return }
-                                        await MainActor.run { performSearch() }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                    
+                    // Floating Search Card (Fra / Til)
+                    VStack(spacing: 0) {
+                        // "Fra" Field (skjult som standard)
+                    if isEditingStartLocation || startCoordinate != nil {
+                        HStack {
+                            Text("Fra:")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .frame(width: 35, alignment: .leading)
+                            
+                            TextField("Min posisjon", text: $searchQueryFrom)
+                                .focused($searchFocus, equals: .from)
+                                .onChange(of: searchQueryFrom) { _, newValue in
+                                    if searchFocus == .from {
+                                        handleSearchChange(newValue)
                                     }
                                 }
+                            
+                            if !searchQueryFrom.isEmpty && searchFocus == .from {
+                                Button {
+                                    searchQueryFrom = ""
+                                    startCoordinate = nil
+                                    startName = "Min posisjon"
+                                    searchResults = []
+                                    withAnimation {
+                                        isEditingStartLocation = false
+                                    }
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.secondary)
+                                }
                             }
-                        if !searchQuery.isEmpty {
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        
+                        Divider()
+                            .padding(.leading, 51)
+                    }
+                    
+                    // "Til" Field (Hovedfokus)
+                    HStack {
+                        Image(systemName: searchFocus == .to ? "magnifyingglass.circle.fill" : "magnifyingglass")
+                            .font(.title3)
+                            .foregroundColor(searchFocus == .to ? .blue : .secondary)
+                            .frame(width: 35, alignment: .leading)
+                        
+                        TextField("Hvor vil du reise?", text: $searchQueryTo)
+                            .focused($searchFocus, equals: .to)
+                            .font(.body)
+                            .onChange(of: searchQueryTo) { _, newValue in
+                                if searchFocus == .to {
+                                    handleSearchChange(newValue)
+                                }
+                            }
+                        
+                        if !searchQueryTo.isEmpty && searchFocus == .to {
                             Button {
-                                searchQuery = ""
+                                searchQueryTo = ""
+                                destinationCoordinate = nil
+                                destinationName = "Valgt sted"
                                 searchResults = []
+                                showTripListSheet = false
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
                                     .foregroundColor(.secondary)
                             }
                         }
                     }
-                    .padding()
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(12)
-                    .shadow(radius: 10)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    
+                    }
+                .background(.thickMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
                     .padding(.horizontal)
-                    .padding(.top, 16)
+                    
+                    // Favorites Chips (Visible when a field is focused)
+                    if searchFocus != nil && !favoritesManager.favorites.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(favoritesManager.favorites) { favorite in
+                                    Button {
+                                        selectFavorite(favorite, for: searchFocus!)
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: favorite.type.iconName)
+                                            Text(favorite.name)
+                                                .font(.subheadline)
+                                                .bold()
+                                        }
+                                        .padding(.vertical, 8)
+                                        .padding(.horizontal, 12)
+                                        .background(Color.blue.opacity(0.15))
+                                        .foregroundColor(.blue)
+                                        .cornerRadius(16)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+                        }
+                    }
                     
                     // Search Results
-                    if !searchResults.isEmpty {
+                    if !searchResults.isEmpty && searchFocus != nil {
                         VStack(alignment: .leading, spacing: 0) {
                             ForEach(searchResults.prefix(5).indices, id: \.self) { index in
                                 let item = searchResults[index]
                                 Button {
-                                    selectSearchResult(item)
+                                    selectSearchResult(item, for: searchFocus!)
                                 } label: {
                                     VStack(alignment: .leading) {
                                         Text(item.name ?? "Ukjent sted")
@@ -118,122 +247,31 @@ struct TripPlannerView: View {
                         .background(.ultraThinMaterial)
                         .cornerRadius(12)
                         .padding(.horizontal)
+                        .padding(.top, 8)
                         .shadow(radius: 10)
                     }
                 }
+                .padding(.top, 16)
                 .zIndex(2)
                 
-                // Map Controls & Bottom Sheet (Combined)
-                VStack(spacing: 16) {
-                    Spacer()
-                    
-                    // Map Controls
-                    HStack {
+                // Map Controls
+                    VStack(spacing: 16) {
                         Spacer()
-                        VStack(spacing: 10) {
-                            MapCompass(scope: mapScope)
-                            MapUserLocationButton(scope: mapScope)
-                        }
-                        .buttonBorderShape(.circle)
-                        .padding(.trailing, 16)
-                    }
-                    
-                    // Bottom Sheet / Panel
-                    if destinationCoordinate == nil {
-                        Text("Trykk på kartet for å velge hvor du vil reise")
-                            .font(.headline)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(.ultraThinMaterial)
-                            .cornerRadius(12)
-                            .shadow(radius: 5)
-                            .padding(.horizontal)
-                            .padding(.bottom)
-                    } else {
-                        VStack(spacing: 16) {
-                            if trips.isEmpty && !isLoadingTrips {
-                                Button(action: searchTrips) {
-                                    Text("Søk etter avganger hit")
-                                        .font(.headline)
-                                        .foregroundColor(.white)
-                                        .padding()
-                                        .frame(maxWidth: .infinity)
-                                        .background(Color.blue)
-                                        .cornerRadius(12)
-                                }
-                            } else if isLoadingTrips {
-                                ProgressView("Søker i Entur...")
-                                    .padding()
-                            } else {
-                                // List of trips
-                                ScrollView {
-                                    VStack(alignment: .leading, spacing: 12) {
-                                        Text("Velg avgang for Aktiv Overgang:")
-                                            .font(.headline)
-                                        
-                                        ForEach(trips) { trip in
-                                            Button {
-                                                selectedTrip = trip
-                                            } label: {
-                                                HStack(spacing: 16) {
-                                                    Image(systemName: modeIcon(for: trip.mode))
-                                                        .font(.title)
-                                                        .foregroundColor(.blue)
-                                                    
-                                                    VStack(alignment: .leading, spacing: 4) {
-                                                        Text(trip.description)
-                                                            .font(.subheadline)
-                                                            .bold()
-                                                        
-                                                        HStack {
-                                                            Text("\(formatTime(trip.expectedStartTime)) - \(formatTime(trip.expectedEndTime))")
-                                                                .font(.subheadline)
-                                                            
-                                                            Text("(\(Int(trip.expectedEndTime.timeIntervalSince(trip.expectedStartTime) / 60)) min)")
-                                                                .font(.subheadline)
-                                                                .foregroundColor(.secondary)
-                                                        }
-                                                        
-                                                        let bytter = trip.transitLegs.count > 1 ? trip.transitLegs.count - 1 : 0
-                                                        Text(bytter == 0 ? "Direkte" : "\(bytter) bytte(r)")
-                                                            .font(.caption)
-                                                            .padding(.horizontal, 6)
-                                                            .padding(.vertical, 2)
-                                                            .background(Color.secondary.opacity(0.2))
-                                                            .cornerRadius(4)
-                                                    }
-                                                    Spacer()
-                                                    Image(systemName: "chevron.right")
-                                                        .foregroundColor(.gray)
-                                                }
-                                                .padding()
-                                                .background(Color(.secondarySystemBackground))
-                                                .cornerRadius(8)
-                                            }
-                                            .buttonStyle(.plain)
-                                        }
-                                    }
-                                }
-                                .frame(maxHeight: 250)
+                        
+                        HStack {
+                            Spacer()
+                            VStack(spacing: 10) {
+                                MapCompass(scope: mapScope)
+                                MapUserLocationButton(scope: mapScope)
                             }
-                            
-                            if let error = errorMessage {
-                                Text(error)
-                                    .foregroundColor(.red)
-                                    .font(.caption)
-                            }
+                            .buttonBorderShape(.circle)
+                            .padding(.trailing, 16)
                         }
-                        .padding()
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(16)
-                        .shadow(radius: 10)
-                        .padding(.horizontal)
-                        .padding(.bottom)
                     }
-                }
-                .zIndex(3)
+                    .zIndex(3)
+                    .padding(.bottom, 24)
             }
-            .navigationTitle("Reiseplanlegger")
+            .navigationTitle("AktivOvergang")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -243,11 +281,140 @@ struct TripPlannerView: View {
                         Image(systemName: "gearshape.fill")
                             .foregroundColor(.primary)
                     }
+                    .accessibilityLabel("Innstillinger")
+                }
+            }
+            .sheet(isPresented: Binding(
+                get: { showTripListSheet },
+                set: { isPresented in
+                    showTripListSheet = isPresented
+                }
+            )) {
+                VStack(spacing: 16) {
+                    if trips.isEmpty && !isLoadingTrips {
+                        VStack(spacing: 12) {
+                            Button(action: searchTrips) {
+                                Text("Søk ruter")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                    .padding()
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.blue)
+                                    .cornerRadius(12)
+                            }
+                            
+                            Button {
+                                showSaveFavoriteSheet = true
+                            } label: {
+                                Label("Lagre destinasjon som favoritt", systemImage: "star.fill")
+                                    .font(.subheadline)
+                                    .foregroundColor(.blue)
+                                    .padding()
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.blue.opacity(0.1))
+                                    .cornerRadius(12)
+                            }
+                        }
+                        .padding()
+                        Spacer()
+                    } else if isLoadingTrips {
+                        ProgressView("Søker i Entur...")
+                            .padding(.top, 32)
+                        Spacer()
+                    } else {
+                        // List of trips
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("Velg avgang for Aktiv Overgang:")
+                                .font(.headline)
+                                .padding(.top, 24)
+                                .padding(.horizontal)
+                                .padding(.bottom, 12)
+                            
+                            ScrollView {
+                                VStack(spacing: 12) {
+                                    ForEach(trips) { trip in
+                                        Button {
+                                            let generator = UISelectionFeedbackGenerator()
+                                            generator.selectionChanged()
+                                            selectedTrip = trip
+                                            showTripListSheet = false
+                                        } label: {
+                                            HStack(spacing: 16) {
+                                                Image(systemName: trip.mode.iconName)
+                                                    .font(.title)
+                                                    .foregroundColor(.blue)
+                                                
+                                                VStack(alignment: .leading, spacing: 4) {
+                                                    Text(trip.description)
+                                                        .font(.subheadline)
+                                                        .bold()
+                                                    
+                                                    let bytter = trip.transitLegs.count > 1 ? trip.transitLegs.count - 1 : 0
+                                                    Text(bytter == 0 ? "Direkte" : "\(bytter) bytte(r)")
+                                                        .font(.caption)
+                                                        .padding(.horizontal, 6)
+                                                        .padding(.vertical, 2)
+                                                        .background(Color.secondary.opacity(0.2))
+                                                        .cornerRadius(4)
+                                                }
+                                                
+                                                Spacer()
+                                                
+                                                VStack(alignment: .trailing, spacing: 4) {
+                                                    Text(trip.expectedStartTime.formatted(date: .omitted, time: .shortened))
+                                                        .font(.subheadline)
+                                                        .bold()
+                                                    Text(trip.expectedEndTime.formatted(date: .omitted, time: .shortened))
+                                                        .font(.caption)
+                                                        .foregroundColor(.secondary)
+                                                }
+                                                
+                                                Image(systemName: "chevron.right")
+                                                    .foregroundColor(.gray)
+                                                    .padding(.leading, 4)
+                                            }
+                                            .padding()
+                                            .background(Color(.secondarySystemBackground))
+                                            .cornerRadius(12)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.horizontal)
+                                .padding(.bottom, 24)
+                            }
+                        }
+                    }
+                    
+                    if let error = errorMessage {
+                        VStack(spacing: 8) {
+                            Text(error)
+                                .foregroundColor(.red)
+                                .font(.caption)
+                            
+                            Button {
+                                searchTrips()
+                            } label: {
+                                Label("Prøv igjen", systemImage: "arrow.clockwise")
+                                    .font(.caption)
+                                    .bold()
+                            }
+                        }
+                    }
+                }
+                .presentationDetents(trips.isEmpty ? [.height(180)] : [.medium, .large])
+                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
+                .interactiveDismissDisabled(false)
+                .sheet(isPresented: $showSaveFavoriteSheet) {
+                    if let dest = destinationCoordinate {
+                        SaveFavoriteView(coordinate: dest, defaultName: destinationName)
+                    }
                 }
             }
             .navigationDestination(item: $selectedTrip) { trip in
                 if let dest = destinationCoordinate {
-                    TransitMapView(trip: trip, destinationCoordinate: dest)
+                    let startLoc = startCoordinate ?? locationManager.location?.coordinate ?? CLLocationCoordinate2D(latitude: 0, longitude: 0)
+                    TransitMapView(trip: trip, destinationCoordinate: dest, startCoordinate: startLoc)
                 }
             }
             .sheet(isPresented: $showSettings) {
@@ -261,19 +428,23 @@ struct TripPlannerView: View {
     }
     
     private func searchTrips() {
-        guard let dest = destinationCoordinate,
-              let currentLoc = locationManager.location else {
-            errorMessage = "Mangler din posisjon eller destinasjon."
+        guard let dest = destinationCoordinate else {
+            errorMessage = "Mangler destinasjon."
+            return
+        }
+        guard let start = startCoordinate ?? locationManager.location?.coordinate else {
+            errorMessage = "Mangler startposisjon."
             return
         }
         
         isLoadingTrips = true
         errorMessage = nil
+        searchFocus = nil
         
         Task {
             do {
                 let fetchedTrips = try await router.fetchTrips(
-                    from: currentLoc.coordinate,
+                    from: start,
                     to: dest
                 )
                 
@@ -293,19 +464,25 @@ struct TripPlannerView: View {
         }
     }
     
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+    private func handleSearchChange(_ newValue: String) {
+        searchTask?.cancel()
+        if newValue.isEmpty {
+            searchResults = []
+        } else {
+            searchTask = Task {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                guard !Task.isCancelled else { return }
+                await MainActor.run { performSearch(query: newValue) }
+            }
+        }
     }
     
-    private func performSearch() {
-        guard !searchQuery.isEmpty else { return }
+    private func performSearch(query: String) {
+        guard !query.isEmpty else { return }
         
         let request = MKLocalSearch.Request()
-        request.naturalLanguageQuery = searchQuery
+        request.naturalLanguageQuery = query
         
-        // Prioriter søk i nærheten av brukeren
         if let currentLoc = locationManager.location {
             request.region = MKCoordinateRegion(center: currentLoc.coordinate, latitudinalMeters: 50000, longitudinalMeters: 50000)
         }
@@ -316,14 +493,12 @@ struct TripPlannerView: View {
                 self.errorMessage = "Klarte ikke å søke opp stedet."
                 return
             }
-            // Filtrer slik at vi kun viser resultater fra Norge
             var filtered = response.mapItems.filter { item in
                 let countryCode = item.placemark.countryCode
                 let country = item.placemark.country
                 return countryCode == "NO" || country == "Norway" || country == "Norge" || countryCode == nil
             }
             
-            // Sorter etter avstand fra brukeren
             if let userLoc = self.locationManager.location {
                 filtered.sort { item1, item2 in
                     let loc1 = item1.placemark.location
@@ -338,27 +513,46 @@ struct TripPlannerView: View {
         }
     }
     
-    private func selectSearchResult(_ item: MKMapItem) {
+    private func selectSearchResult(_ item: MKMapItem, for focus: SearchFocus) {
         let coordinate = item.placemark.coordinate
+        let name = item.name ?? "Valgt sted"
         withAnimation {
-            self.destinationCoordinate = coordinate
+            if focus == .from {
+                self.startCoordinate = coordinate
+                self.startName = name
+                self.searchQueryFrom = name
+            } else {
+                self.destinationCoordinate = coordinate
+                self.destinationName = name
+                self.searchQueryTo = name
+                self.showTripListSheet = true
+            }
             self.position = .region(MKCoordinateRegion(center: coordinate, latitudinalMeters: 1000, longitudinalMeters: 1000))
             self.searchResults = []
-            self.searchQuery = ""
             self.trips = []
             self.errorMessage = nil
+            self.searchFocus = nil
         }
     }
     
-    private func modeIcon(for mode: TransitMode) -> String {
-        switch mode {
-        case .bus: return "bus.fill"
-        case .tram: return "tram.fill"
-        case .metro: return "t.circle.fill"
-        case .rail: return "train.side.front.car"
-        case .water: return "ferry.fill"
-        case .foot: return "figure.walk"
-        default: return "bus.fill"
+    private func selectFavorite(_ favorite: FavoriteLocation, for focus: SearchFocus) {
+        let coordinate = favorite.coordinate
+        withAnimation {
+            if focus == .from {
+                self.startCoordinate = coordinate
+                self.startName = favorite.name
+                self.searchQueryFrom = favorite.name
+            } else {
+                self.destinationCoordinate = coordinate
+                self.destinationName = favorite.name
+                self.searchQueryTo = favorite.name
+                self.showTripListSheet = true
+            }
+            self.position = .region(MKCoordinateRegion(center: coordinate, latitudinalMeters: 1000, longitudinalMeters: 1000))
+            self.searchResults = []
+            self.trips = []
+            self.errorMessage = nil
+            self.searchFocus = nil
         }
     }
 }

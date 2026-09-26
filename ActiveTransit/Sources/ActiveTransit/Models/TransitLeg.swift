@@ -1,7 +1,9 @@
 import Foundation
 
 /// Represents a single transit leg in a multi-leg journey.
-public struct TransitLeg: Equatable, Hashable {
+public struct TransitLeg: Equatable, Hashable, Sendable, Identifiable {
+    public var id: String { serviceJourneyId }
+    
     /// The service journey ID for this specific leg.
     public let serviceJourneyId: String
     /// The start name for this specific leg.

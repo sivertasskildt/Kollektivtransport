@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 
 /// Represents a transit stop on a service journey.
-public struct TransitStop: Codable, Equatable {
+public struct TransitStop: Codable, Equatable, Hashable, Identifiable, Sendable {
     /// The unique identifier of the stop place (e.g., NSR:StopPlace:1234).
     public let id: String
     

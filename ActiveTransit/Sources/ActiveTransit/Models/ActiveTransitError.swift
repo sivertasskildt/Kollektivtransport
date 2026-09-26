@@ -1,7 +1,7 @@
 import Foundation
 
 /// Errors that can occur within the ActiveTransit framework.
-public enum ActiveTransitError: Error, LocalizedError {
+public enum ActiveTransitError: Error, LocalizedError, @unchecked Sendable {
     /// Network-related errors.
     case networkError(Error)
     

@@ -25,14 +25,17 @@ let router = ActiveTransitRouter(enturClientName: "ditt-firma-din-app")
 ```
 
 ### Beregne Optimalt Påstigningspunkt
-Hvis du allerede har funnet en reise (f.eks. via din egen reiseplanlegger) og har en `serviceJourneyId` fra Entur, kan du bruke biblioteket slik:
+Hvis du allerede har funnet en reise (f.eks. via din egen reiseplanlegger) og har hentet ut rutens stoppesteder, kan du bruke biblioteket slik:
 
 ```swift
+let rutensStoppesteder: [TransitStop] = ... // Liste med stoppesteder
+
 let optimaltStopp = try await router.findOptimalBoardingStop(
-    for: "NSR:ServiceJourney:1234",
+    stops: rutensStoppesteder,
     currentPosition: minLokasjon,
+    startTime: Date(), // Tiden du starter å gå
     walkingSpeed: 1.4, // meter per sekund
-    safetyMargin: 120, // 2 minutter sikkerhetsmargin
+    safetyMargin: 60, // 1 minutt sikkerhetsmargin
     preciseWalkTimeProvider: nil // Valgfritt: injiser Apple Maps ETA her
 )
 
