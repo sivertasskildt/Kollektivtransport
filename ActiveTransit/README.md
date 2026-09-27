@@ -45,6 +45,7 @@ print("Du bør gå til: \(optimaltStopp.name)")
 ### Inkluderte Domenemodeller
 - `TransitStop`: Representerer et stoppested med navn, koordinater og forventet ankomsttid for bussen.
 - `TransitTrip`: Representerer en reise fra A til B (brukes av den innebygde reiseplanlegger-funksjonen).
+- `TransitLeg`: Representerer en spesifikk etappe (f.eks. en T-bane-tur) med nøyaktige start- og slutt-tider, noe som løser disambiguering ved ring-linjer.
 - `ActiveTransitError`: Omfattende error-handling for nettverksfeil, GraphQL-feil, og ruting-feil.
 
 ## Arkitektur
