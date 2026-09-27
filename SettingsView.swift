@@ -4,6 +4,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var userSettings: UserSettings
     @EnvironmentObject var favoritesManager: FavoritesManager
+    @State private var editingFavorite: FavoriteLocation?
     
     var body: some View {
         NavigationStack {
@@ -32,10 +33,18 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     } else {
                         ForEach(favoritesManager.favorites) { favorite in
-                            HStack {
-                                Image(systemName: favorite.type.iconName)
-                                    .foregroundColor(.blue)
-                                Text(favorite.name)
+                            Button {
+                                editingFavorite = favorite
+                            } label: {
+                                HStack {
+                                    Image(systemName: favorite.type.iconName)
+                                        .foregroundColor(.blue)
+                                    Text(favorite.name)
+                                        .foregroundColor(.primary)
+                                    Spacer()
+                                    Image(systemName: "pencil")
+                                        .foregroundColor(.secondary)
+                                }
                             }
                         }
                         .onDelete { indexSet in
@@ -59,6 +68,9 @@ struct SettingsView: View {
                         EditButton()
                     }
                 }
+            }
+            .sheet(item: $editingFavorite) { favorite in
+                EditFavoriteView(favorite: favorite)
             }
         }
     }

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		022A07B83067D64100222320 /* EditFavoriteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 022A07B73067D64100222320 /* EditFavoriteView.swift */; };
 		027779D13061AC010098FE1E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027779CF3061AC010098FE1E /* SettingsView.swift */; };
 		027779D23061AC010098FE1E /* UserSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027779D03061AC010098FE1E /* UserSettings.swift */; };
 		027779D33061AC010098FE1E /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027779CE3061AC010098FE1E /* LocationManager.swift */; };
@@ -16,16 +17,17 @@
 		02ED859330609F5E00153DC2 /* TripPlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02ED859230609F5E00153DC2 /* TripPlannerView.swift */; };
 		2E07C9FD4783B7204BA41AA4 /* KollektivApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85FB0D0B64C2C4750355D37A /* KollektivApp.swift */; };
 		7F3616DBA23352A75452A536 /* TransitMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F19852D1E87137D1AE6DB6EE /* TransitMapView.swift */; };
-		D3CBE45F38C1754BDCBE9CDA /* ActiveTransit in Frameworks */ = {isa = PBXBuildFile; productRef = 55C6ABE7E6DBED79A7084DE2 /* ActiveTransit */; };
 		AA000001AABB00010000AA01 /* ItineraryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001AABB00010000BB01 /* ItineraryModels.swift */; };
 		AA000001AABB00010000AA02 /* TransitMode+Icon.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001AABB00010000BB02 /* TransitMode+Icon.swift */; };
 		AA000001AABB00010000AA03 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001AABB00010000BB03 /* L10n.swift */; };
 		AA000001AABB00010000AA04 /* FavoriteLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001AABB00010000BB04 /* FavoriteLocation.swift */; };
 		AA000001AABB00010000AA05 /* FavoritesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001AABB00010000BB05 /* FavoritesManager.swift */; };
 		AA000001AABB00010000AA06 /* SaveFavoriteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001AABB00010000BB06 /* SaveFavoriteView.swift */; };
+		D3CBE45F38C1754BDCBE9CDA /* ActiveTransit in Frameworks */ = {isa = PBXBuildFile; productRef = 55C6ABE7E6DBED79A7084DE2 /* ActiveTransit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		022A07B73067D64100222320 /* EditFavoriteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditFavoriteView.swift; sourceTree = "<group>"; };
 		027779CE3061AC010098FE1E /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
 		027779CF3061AC010098FE1E /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		027779D03061AC010098FE1E /* UserSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSettings.swift; sourceTree = "<group>"; };
@@ -35,14 +37,14 @@
 		02ED859230609F5E00153DC2 /* TripPlannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripPlannerView.swift; sourceTree = "<group>"; };
 		318109DB2FDCFB6875B0226B /* KollektivApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KollektivApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		85FB0D0B64C2C4750355D37A /* KollektivApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KollektivApp.swift; sourceTree = "<group>"; };
-		D34F374DF35D4BF0E8E5E3A5 /* ActiveTransit */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ActiveTransit; sourceTree = SOURCE_ROOT; };
-		F19852D1E87137D1AE6DB6EE /* TransitMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitMapView.swift; sourceTree = "<group>"; };
 		AA000001AABB00010000BB01 /* ItineraryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ItineraryModels.swift; sourceTree = "<group>"; };
 		AA000001AABB00010000BB02 /* TransitMode+Icon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TransitMode+Icon.swift"; sourceTree = "<group>"; };
 		AA000001AABB00010000BB03 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		AA000001AABB00010000BB04 /* FavoriteLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoriteLocation.swift; sourceTree = "<group>"; };
 		AA000001AABB00010000BB05 /* FavoritesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManager.swift; sourceTree = "<group>"; };
 		AA000001AABB00010000BB06 /* SaveFavoriteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SaveFavoriteView.swift; sourceTree = "<group>"; };
+		D34F374DF35D4BF0E8E5E3A5 /* ActiveTransit */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ActiveTransit; sourceTree = SOURCE_ROOT; };
+		F19852D1E87137D1AE6DB6EE /* TransitMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitMapView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,6 +78,7 @@
 				AA000001AABB00010000BB04 /* FavoriteLocation.swift */,
 				AA000001AABB00010000BB05 /* FavoritesManager.swift */,
 				AA000001AABB00010000BB06 /* SaveFavoriteView.swift */,
+				022A07B73067D64100222320 /* EditFavoriteView.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -165,6 +168,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2E07C9FD4783B7204BA41AA4 /* KollektivApp.swift in Sources */,
+				022A07B83067D64100222320 /* EditFavoriteView.swift in Sources */,
 				7F3616DBA23352A75452A536 /* TransitMapView.swift in Sources */,
 				027779D13061AC010098FE1E /* SettingsView.swift in Sources */,
 				0298D1F030647B100020F1D8 /* TransitMapViewModel.swift in Sources */,

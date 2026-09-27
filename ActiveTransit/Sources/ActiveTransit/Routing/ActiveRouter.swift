@@ -5,7 +5,7 @@ import CoreLocation
 public final class ActiveRouter: ActiveRoutingProtocol {
     
     /// A factor applied to straight-line distance to estimate actual walking distance (accounts for streets and corners).
-    private let walkDistanceWiggleFactor: Double = 1.3
+    private let walkDistanceWiggleFactor: Double = 1.1
     
     public init() {}
     
@@ -52,16 +52,24 @@ public final class ActiveRouter: ActiveRoutingProtocol {
         if let preciseProvider = preciseWalkTimeProvider {
             var checkCount = 0
             for candidate in heuristicCandidates.reversed() {
-                if checkCount >= 2 { break }
+                if checkCount >= 4 { break }
                 checkCount += 1
                 
                 if let preciseWalkTime = try? await preciseProvider(currentPosition, candidate) {
                     let requiredArrivalTime = now.addingTimeInterval(preciseWalkTime + safetyMargin)
-                    if requiredArrivalTime < candidate.expectedArrivalTime {
+                    if requiredArrivalTime <= candidate.expectedArrivalTime {
                         return candidate
                     }
                 }
             }
+            
+            // Hvis de to lengste/mest optimistiske stoppene feilet (f.eks pga elv/bro i veien),
+            // prøver vi å gi et kortere og tryggere stopp fremfor å gi opp (throw) helt.
+            // Kandidat 0 er typisk stoppet vi allerede står på, så kandidat 1 er første virkelige mulighet.
+            if heuristicCandidates.count > 1 {
+                return heuristicCandidates[1]
+            }
+            
             throw ActiveTransitError.noBetterStopFound
         }
         

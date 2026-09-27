@@ -40,26 +40,21 @@ struct TransitMapView: View {
 
                 
                 // Tegn opp alle andre stopp
-                ForEach(viewModel.allStops) { stop in
-                    if !viewModel.optimalStops.values.contains(where: { $0.id == stop.id }) && 
-                       !viewModel.transferStops.contains(where: { $0.id == stop.id }) {
-                        
-                        Annotation(stop.name, coordinate: CLLocationCoordinate2D(latitude: stop.latitude, longitude: stop.longitude)) {
-                            Circle()
-                                .fill(Color.blue)
-                                .frame(width: 12, height: 12)
-                                .overlay(Circle().stroke(Color.white, lineWidth: 2))
-                                .shadow(radius: 2)
-                                .accessibilityLabel("Stopp: \(stop.name)")
-                        }
+                ForEach(viewModel.displayRegularStops) { stop in
+                    Annotation(stop.name, coordinate: CLLocationCoordinate2D(latitude: stop.latitude, longitude: stop.longitude)) {
+                        Circle()
+                            .fill(Color.blue)
+                            .frame(width: 12, height: 12)
+                            .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                            .shadow(radius: 2)
+                            .accessibilityLabel("Stopp: \(stop.name)")
                     }
                 }
                 
                 // Tegn opp overganger (Bytte)
-                ForEach(viewModel.transferStops) { stop in
-                    if !viewModel.optimalStops.values.contains(where: { $0.id == stop.id }) {
-                        Annotation(stop.name, coordinate: CLLocationCoordinate2D(latitude: stop.latitude, longitude: stop.longitude)) {
-                            VStack {
+                ForEach(viewModel.displayTransferStops) { stop in
+                    Annotation(stop.name, coordinate: CLLocationCoordinate2D(latitude: stop.latitude, longitude: stop.longitude)) {
+                        VStack {
                                 ZStack {
                                     Circle()
                                         .fill(Color.purple)
@@ -80,7 +75,6 @@ struct TransitMapView: View {
                             }
                             .accessibilityElement(children: .combine)
                             .accessibilityLabel("Bytt transport ved \(stop.name)")
-                        }
                     }
                 }
                 
@@ -112,7 +106,7 @@ struct TransitMapView: View {
                 }
                 
                 // Tegn opp optimale stopp (Active Waiting)
-                ForEach(Array(viewModel.optimalStops.values), id: \.id) { optimal in
+                ForEach(viewModel.displayOptimalStops) { optimal in
                     Annotation(optimal.name, coordinate: CLLocationCoordinate2D(latitude: optimal.latitude, longitude: optimal.longitude)) {
                         VStack {
                             ZStack {

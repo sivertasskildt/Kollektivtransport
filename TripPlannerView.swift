@@ -50,12 +50,12 @@ struct TripPlannerView: View {
                         UserAnnotation()
                         
                         if let start = startCoordinate ?? locationManager.location?.coordinate {
-                            Marker("Start", coordinate: start)
+                            Marker(startName, coordinate: start)
                                 .tint(.green)
                         }
                         
                         if let dest = destinationCoordinate {
-                            Marker("Destinasjon", coordinate: dest)
+                            Marker(destinationName, coordinate: dest)
                                 .tint(.blue)
                         }
                     }
@@ -72,13 +72,36 @@ struct TripPlannerView: View {
                         if let location = reader.convert(screenCoordinate, from: .local) {
                             withAnimation {
                                 destinationCoordinate = location
-                                destinationName = "Kartposisjon"
-                                searchQueryTo = ""
+                                destinationName = "Henter adresse..."
+                                searchQueryTo = destinationName
                                 searchFocus = nil
                                 searchResults = []
                                 trips = []
                                 errorMessage = nil
                                 showTripListSheet = true
+                            }
+                            
+                            Task {
+                                let clLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
+                                if let placemarks = try? await CLGeocoder().reverseGeocodeLocation(clLocation),
+                                   let placemark = placemarks.first {
+                                    // Velg gatenavn (thoroughfare) eller stedsnavn (name)
+                                    let name = placemark.thoroughfare ?? placemark.name ?? "Kartposisjon"
+                                    await MainActor.run {
+                                        // Sjekk at brukeren ikke har trykket på et nytt sted i mellomtiden
+                                        if destinationCoordinate?.latitude == location.latitude && destinationCoordinate?.longitude == location.longitude {
+                                            destinationName = name
+                                            searchQueryTo = name
+                                        }
+                                    }
+                                } else {
+                                    await MainActor.run {
+                                        if destinationCoordinate?.latitude == location.latitude && destinationCoordinate?.longitude == location.longitude {
+                                            destinationName = "Kartposisjon"
+                                            searchQueryTo = "Kartposisjon"
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -130,6 +153,9 @@ struct TripPlannerView: View {
                                         handleSearchChange(newValue)
                                     }
                                 }
+                                .onSubmit {
+                                    executeImmediateSearch(query: searchQueryFrom, for: .from)
+                                }
                             
                             if !searchQueryFrom.isEmpty && searchFocus == .from {
                                 Button {
@@ -168,6 +194,9 @@ struct TripPlannerView: View {
                                     handleSearchChange(newValue)
                                 }
                             }
+                            .onSubmit {
+                                executeImmediateSearch(query: searchQueryTo, for: .to)
+                            }
                         
                         if !searchQueryTo.isEmpty && searchFocus == .to {
                             Button {
@@ -186,7 +215,7 @@ struct TripPlannerView: View {
                     .padding(.vertical, 14)
                     
                     }
-                .background(.thickMaterial)
+                .background(.ultraThinMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
                     .padding(.horizontal)
@@ -315,8 +344,8 @@ struct TripPlannerView: View {
                                     .cornerRadius(12)
                             }
                         }
-                        .padding()
-                        Spacer()
+                        .padding(.horizontal)
+                        .padding(.top, 24)
                     } else if isLoadingTrips {
                         ProgressView("Søker i Entur...")
                             .padding(.top, 32)
@@ -402,7 +431,7 @@ struct TripPlannerView: View {
                         }
                     }
                 }
-                .presentationDetents(trips.isEmpty ? [.height(180)] : [.medium, .large])
+                .presentationDetents(trips.isEmpty ? [.height(150)] : [.medium, .large])
                 .presentationBackgroundInteraction(.enabled(upThrough: .medium))
                 .interactiveDismissDisabled(false)
                 .sheet(isPresented: $showSaveFavoriteSheet) {
@@ -419,6 +448,11 @@ struct TripPlannerView: View {
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+            }
+            .onChange(of: selectedTrip) { _, newValue in
+                if newValue == nil && !trips.isEmpty {
+                    showTripListSheet = true
+                }
             }
             .onAppear {
                 locationManager.requestAuthorization()
@@ -510,6 +544,44 @@ struct TripPlannerView: View {
             }
             
             self.searchResults = filtered
+        }
+    }
+    
+    private func executeImmediateSearch(query: String, for focus: SearchFocus) {
+        guard !query.isEmpty else { return }
+        
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = query
+        
+        if let currentLoc = locationManager.location {
+            request.region = MKCoordinateRegion(center: currentLoc.coordinate, latitudinalMeters: 50000, longitudinalMeters: 50000)
+        }
+        
+        let search = MKLocalSearch(request: request)
+        search.start { response, _ in
+            guard let response = response else { return }
+            
+            var filtered = response.mapItems.filter { item in
+                let countryCode = item.placemark.countryCode
+                let country = item.placemark.country
+                return countryCode == "NO" || country == "Norway" || country == "Norge" || countryCode == nil
+            }
+            
+            if let userLoc = self.locationManager.location {
+                filtered.sort { a, b in
+                    let loc1 = a.placemark.location
+                    let loc2 = b.placemark.location
+                    let dist1 = loc1?.distance(from: userLoc) ?? Double.greatestFiniteMagnitude
+                    let dist2 = loc2?.distance(from: userLoc) ?? Double.greatestFiniteMagnitude
+                    return dist1 < dist2
+                }
+            }
+            
+            if let first = filtered.first {
+                DispatchQueue.main.async {
+                    self.selectSearchResult(first, for: focus)
+                }
+            }
         }
     }
     

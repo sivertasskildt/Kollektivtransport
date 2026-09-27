@@ -11,6 +11,9 @@ final class TransitMapViewModel: ObservableObject {
     @Published var optimalStops: [String: TransitStop] = [:]
     @Published var closestStop: TransitStop?
     @Published var transferStops: [TransitStop] = []
+    @Published var displayRegularStops: [TransitStop] = []
+    @Published var displayTransferStops: [TransitStop] = []
+    @Published var displayOptimalStops: [TransitStop] = []
     @Published var finalDestinationStop: TransitStop?
     @Published var itinerary: [ItineraryLeg] = []
     @Published var walkingRoutes: [WalkingRoute] = []
@@ -21,6 +24,9 @@ final class TransitMapViewModel: ObservableObject {
     
     var hasFetchedRoute = false
     private let router = ActiveTransitRouter(enturClientName: "sivertasskildt-aktivovergang")
+    
+    // Klasse-nivå cache for gangruter, slik at vi ikke ber MapKit om samme rute flere ganger ved "Prøv igjen" eller visnings-oppdateringer.
+    private var mkRouteCache: [String: MKRoute] = [:]
     
     /// Resets the fetch state so the route can be re-fetched.
     func retry() {
@@ -44,8 +50,6 @@ final class TransitMapViewModel: ObservableObject {
             var newWalkingRoutes: [WalkingRoute] = []
             var newTransitPolylines: [[CLLocationCoordinate2D]] = []
             
-            var mkRouteCache: [String: MKRoute] = [:]
-            
             func getWalkingRoute(start: CLLocationCoordinate2D, end: CLLocationCoordinate2D) async throws -> MKRoute {
                 let key = "\(start.latitude),\(start.longitude)-\(end.latitude),\(end.longitude)"
                 if let cached = mkRouteCache[key] { return cached }
@@ -67,21 +71,53 @@ final class TransitMapViewModel: ObservableObject {
             
             let legs = trip.transitLegs.isEmpty ? [TransitLeg(serviceJourneyId: trip.mainServiceJourneyId, startName: nil, destinationName: trip.destinationName, mode: trip.mode, description: trip.description)] : trip.transitLegs
             
+            // Forhåndslast stopp for alle etapper parallelt for å kutte ned på nettverkstiden!
+            var preFetchedStops: [[TransitStop]] = Array(repeating: [], count: legs.count)
+            
+            // Fang opp routeren lokalt for å unngå "@MainActor"-feil i Swift Concurrency når vi kjører i bakgrunnen
+            let localRouter = self.router
+            
+            try await withThrowingTaskGroup(of: (Int, [TransitStop]).self) { group in
+                for (index, leg) in legs.enumerated() {
+                    group.addTask {
+                        let stops = try await localRouter.fetchSubsequentStops(for: leg.serviceJourneyId)
+                        return (index, stops)
+                    }
+                }
+                for try await (index, stops) in group {
+                    preFetchedStops[index] = stops
+                }
+            }
+            
             var didTruncate = false
             var currentPhysicalCoordinate = currentLocation.coordinate
             var currentPhysicalTime = Date()
             
             for (index, leg) in legs.enumerated() {
-                let fetchedStops = try await router.fetchSubsequentStops(for: leg.serviceJourneyId)
+                let fetchedStops = preFetchedStops[index]
                 
                 var startIndex = 0
-                if let startName = leg.startName, let idx = fetchedStops.firstIndex(where: { $0.name == startName }) {
-                    startIndex = idx
+                if let startName = leg.startName {
+                    let candidates = fetchedStops.enumerated().filter { $0.element.name == startName }
+                    if let expectedTime = leg.expectedStartTime, !candidates.isEmpty {
+                        if let best = candidates.min(by: { abs($0.element.expectedArrivalTime.timeIntervalSince(expectedTime)) < abs($1.element.expectedArrivalTime.timeIntervalSince(expectedTime)) }) {
+                            startIndex = best.offset
+                        }
+                    } else if let idx = candidates.first?.offset {
+                        startIndex = idx
+                    }
                 }
                 
                 var endIndex = fetchedStops.count - 1
-                if let destName = leg.destinationName, let idx = fetchedStops.firstIndex(where: { $0.name == destName }) {
-                    endIndex = idx
+                if let destName = leg.destinationName {
+                    let candidates = fetchedStops.enumerated().filter { $0.element.name == destName }
+                    if let expectedTime = leg.expectedEndTime, !candidates.isEmpty {
+                        if let best = candidates.min(by: { abs($0.element.expectedArrivalTime.timeIntervalSince(expectedTime)) < abs($1.element.expectedArrivalTime.timeIntervalSince(expectedTime)) }) {
+                            endIndex = best.offset
+                        }
+                    } else if let idx = candidates.last?.offset {
+                        endIndex = idx
+                    }
                 }
                 
                 var optimalForThisLeg: TransitStop? = nil
@@ -269,6 +305,13 @@ final class TransitMapViewModel: ObservableObject {
             }
             
             self.allStops = uniqueStops
+            
+            let optimalIds = Set(newOptimalStops.values.map { $0.id })
+            let transferIds = Set(newTransferStops.map { $0.id })
+            
+            self.displayOptimalStops = Array(newOptimalStops.values)
+            self.displayTransferStops = newTransferStops.filter { !optimalIds.contains($0.id) }
+            self.displayRegularStops = uniqueStops.filter { !optimalIds.contains($0.id) && !transferIds.contains($0.id) }
             
             if let firstStop = self.allStops.first {
                 self.closestStop = firstStop

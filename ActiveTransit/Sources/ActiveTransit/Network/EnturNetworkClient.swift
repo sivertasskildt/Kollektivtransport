@@ -194,6 +194,8 @@ public final class EnturNetworkClient: EnturClientProtocol {
               expectedEndTime
               legs {
                 mode
+                expectedStartTime
+                expectedEndTime
                 fromPlace {
                   name
                 }
@@ -266,7 +268,15 @@ public final class EnturNetworkClient: EnturClientProtocol {
             let transitLegs = pattern.legs.compactMap { leg -> TransitLeg? in
                 guard leg.mode != .foot, let sj = leg.serviceJourney else { return nil }
                 let name = leg.line?.publicCode ?? leg.line?.name ?? "Transport"
-                return TransitLeg(serviceJourneyId: sj.id, startName: leg.fromPlace?.name, destinationName: leg.toPlace?.name, mode: leg.mode, description: name)
+                return TransitLeg(
+                    serviceJourneyId: sj.id,
+                    startName: leg.fromPlace?.name,
+                    destinationName: leg.toPlace?.name,
+                    mode: leg.mode,
+                    description: name,
+                    expectedStartTime: leg.expectedStartTime,
+                    expectedEndTime: leg.expectedEndTime
+                )
             }
             
             // Need at least one transit leg to proceed
@@ -377,6 +387,8 @@ fileprivate struct TripPattern: Codable {
 
 fileprivate struct TripLeg: Codable {
     let mode: TransitMode
+    let expectedStartTime: Date?
+    let expectedEndTime: Date?
     let line: TripLine?
     let serviceJourney: TripServiceJourney?
     let fromPlace: TripPlace?
