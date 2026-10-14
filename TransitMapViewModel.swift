@@ -91,7 +91,11 @@ final class TransitMapViewModel: ObservableObject {
             
             var didTruncate = false
             var currentPhysicalCoordinate = currentLocation.coordinate
-            var currentPhysicalTime = Date()
+            // Tidspunktet reisen starter. Brukes for å avgjøre om vi fortsatt er på første fysiske etappe
+            // (sammenligning mot `Date()` fungerer ikke, siden den alltid er noen nanosekunder senere).
+            let journeyStartTime = Date()
+            var currentPhysicalTime = journeyStartTime
+            let walkingSpeed = userSettings.walkingSpeed
             
             for (index, leg) in legs.enumerated() {
                 let fetchedStops = preFetchedStops[index]
@@ -125,23 +129,25 @@ final class TransitMapViewModel: ObservableObject {
                     if startIndex <= endIndex {
                         let relevantStops = Array(fetchedStops[startIndex...endIndex])
                         
-                        let preciseProvider: PreciseWalkTimeProvider = { (startLoc: CLLocation, targetStop: TransitStop) async throws -> TimeInterval in
+                        // Presis gangtid fra MapKit, men basert på brukerens egen ganghastighet.
+                        // (`route.expectedTravelTime` bruker Apples standardhastighet og ville gitt feil svar for raske/trege brukere.)
+                        let preciseProvider: PreciseWalkTimeProvider = { @MainActor (startLoc: CLLocation, targetStop: TransitStop) async throws -> TimeInterval in
                             let route = try await getWalkingRoute(start: startLoc.coordinate, end: targetStop.location.coordinate)
-                            return route.expectedTravelTime
+                            return route.distance / walkingSpeed
                         }
                         
                         optimalForThisLeg = try await router.findOptimalBoardingStop(
                             stops: relevantStops,
                             currentPosition: CLLocation(latitude: currentPhysicalCoordinate.latitude, longitude: currentPhysicalCoordinate.longitude),
                             startTime: currentPhysicalTime,
-                            walkingSpeed: userSettings.walkingSpeed,
+                            walkingSpeed: walkingSpeed,
                             safetyMargin: userSettings.safetyMargin,
                             preciseWalkTimeProvider: preciseProvider
                         )
                     }
                 } catch {
                     // Fant ikke noe bedre stopp
-                    if currentPhysicalTime == Date() { // If this is the first physical leg
+                    if currentPhysicalTime == journeyStartTime { // If this is the first physical leg
                         optimalForThisLeg = fetchedStops[startIndex]
                     }
                 }
@@ -181,7 +187,7 @@ final class TransitMapViewModel: ObservableObject {
                     
                     if let alightingStop = legStops.last {
                         let waitTime = actualStartStop.expectedArrivalTime.timeIntervalSince(currentPhysicalTime)
-                        let legWaitTimeMinutes = currentPhysicalTime == Date() ? nil : Int(max(0, waitTime / 60))
+                        let legWaitTimeMinutes = currentPhysicalTime == journeyStartTime ? nil : Int(max(0, waitTime / 60))
                         
                         let itinLeg = ItineraryLeg(
                             legIndex: index,

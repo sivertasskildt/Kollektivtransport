@@ -21,12 +21,18 @@ final class MockEnturNetworkClient: EnturClientProtocol {
         return nil
     }
     
-    func fetchTrips(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) async throws -> [TransitTrip] {
+    func fetchTrips(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D, walkingSpeed: Double) async throws -> [TransitTrip] {
         if shouldThrowError {
             throw ActiveTransitError.invalidResponse
         }
         return mockedTrips
     }
+}
+
+/// Teller hvor mange presise gangtid-oppslag routeren gjør.
+actor CallCounter {
+    private(set) var count = 0
+    func increment() { count += 1 }
 }
 
 final class ActiveTransitTests: XCTestCase {
@@ -190,6 +196,168 @@ final class ActiveTransitTests: XCTestCase {
         
         // With the consecutive-miss buffer, it should still find stop3 even after stop2 is unreachable
         XCTAssertEqual(optimal.id, "3", "Should handle loop routes by looking past unreachable stops")
+    }
+    
+    func testRouterHandlesLoopRouteWithManyUnreachableStops() async throws {
+        let now = Date()
+        let currentPos = CLLocation(latitude: 59.912, longitude: 10.752)
+        
+        // Ring-linje: 5 utilgjengelige stopp på rad før ruten kommer tilbake nær brukeren.
+        var stops = [TransitStop(id: "start", name: "Start", latitude: 59.9121, longitude: 10.7521, expectedArrivalTime: now.addingTimeInterval(300))]
+        for i in 1...5 {
+            stops.append(TransitStop(id: "far\(i)", name: "Far \(i)", latitude: 60.0, longitude: 11.0, expectedArrivalTime: now.addingTimeInterval(300 + Double(i) * 60)))
+        }
+        stops.append(TransitStop(id: "back", name: "Back Close", latitude: 59.9125, longitude: 10.7530, expectedArrivalTime: now.addingTimeInterval(1200)))
+        
+        let optimal = try await ActiveRouter().calculateOptimalStop(
+            currentPosition: currentPos,
+            startTime: now,
+            stops: stops,
+            walkingSpeed: 1.4,
+            safetyMargin: 60
+        )
+        
+        XCTAssertEqual(optimal.id, "back", "Should not give up after a fixed number of unreachable stops")
+    }
+    
+    // MARK: - Precise Walk Time Verification
+    
+    /// Brukerposisjon og tre stopp rett nord, alle heuristisk innenfor rekkevidde.
+    private func makeStraightLineScenario(now: Date) -> (CLLocation, [TransitStop]) {
+        let currentPos = CLLocation(latitude: 59.912, longitude: 10.752)
+        let stops = [
+            TransitStop(id: "A", name: "A", latitude: 59.9125, longitude: 10.752, expectedArrivalTime: now.addingTimeInterval(600)),
+            TransitStop(id: "B", name: "B", latitude: 59.9130, longitude: 10.752, expectedArrivalTime: now.addingTimeInterval(900)),
+            TransitStop(id: "C", name: "C", latitude: 59.9135, longitude: 10.752, expectedArrivalTime: now.addingTimeInterval(1200))
+        ]
+        return (currentPos, stops)
+    }
+    
+    func testPreciseRejectionFallsBackToNextRankedStop() async throws {
+        let now = Date()
+        let (currentPos, stops) = makeStraightLineScenario(now: now)
+        
+        // C har en elv i veien (umulig), B og A er greie.
+        let optimal = try await ActiveRouter().calculateOptimalStop(
+            currentPosition: currentPos,
+            startTime: now,
+            stops: stops,
+            walkingSpeed: 1.4,
+            safetyMargin: 60,
+            preciseWalkTimeProvider: { _, stop in stop.id == "C" ? 10_000 : 60 }
+        )
+        
+        XCTAssertEqual(optimal.id, "B", "Should pick the furthest stop that passes the precise check")
+    }
+    
+    func testNeverReturnsStopRejectedByPreciseCheck() async {
+        let now = Date()
+        let (currentPos, stops) = makeStraightLineScenario(now: now)
+        
+        do {
+            let stop = try await ActiveRouter().calculateOptimalStop(
+                currentPosition: currentPos,
+                startTime: now,
+                stops: stops,
+                walkingSpeed: 1.4,
+                safetyMargin: 60,
+                preciseWalkTimeProvider: { _, _ in 10_000 }
+            )
+            XCTFail("Returned \(stop.id) although every stop was rejected by the precise check")
+        } catch let error as ActiveTransitError {
+            guard case .noBetterStopFound = error else { return XCTFail("Wrong error: \(error)") }
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+    
+    /// Ett stopp nært (100 m) og ett lenger unna (500 m) som bare nås hvis gaten er nesten rett.
+    private func makeTightScenario(now: Date) -> (CLLocation, [TransitStop]) {
+        let currentPos = CLLocation(latitude: 59.912, longitude: 10.752)
+        let stops = [
+            TransitStop(id: "near", name: "Near", latitude: 59.9129, longitude: 10.752, expectedArrivalTime: now.addingTimeInterval(300)),
+            // 500 m: 357 s ved 1.0x (OK innen 450 s med 60 s margin), 500 s ved 1.4x (for sent)
+            TransitStop(id: "tight", name: "Tight", latitude: 59.9165, longitude: 10.752, expectedArrivalTime: now.addingTimeInterval(450))
+        ]
+        return (currentPos, stops)
+    }
+    
+    func testPreciseCheckCanApproveStopOutsideConservativeEstimate() async throws {
+        let now = Date()
+        let (currentPos, stops) = makeTightScenario(now: now)
+        
+        // Rett gate: MapKit bekrefter at det tar ~360 s.
+        let optimal = try await ActiveRouter().calculateOptimalStop(
+            currentPosition: currentPos,
+            startTime: now,
+            stops: stops,
+            walkingSpeed: 1.4,
+            safetyMargin: 60,
+            preciseWalkTimeProvider: { location, stop in location.distance(from: stop.location) / 1.4 }
+        )
+        
+        XCTAssertEqual(optimal.id, "tight", "Lossless pruning should keep stops along straight streets")
+    }
+    
+    func testPreciseErrorFallsBackToConservativeEstimate() async throws {
+        let now = Date()
+        let (currentPos, stops) = makeTightScenario(now: now)
+        
+        // MapKit feiler (f.eks. rate limit): "tight" kan ikke bekreftes og er for stramt for forsiktig estimat.
+        let optimal = try await ActiveRouter().calculateOptimalStop(
+            currentPosition: currentPos,
+            startTime: now,
+            stops: stops,
+            walkingSpeed: 1.4,
+            safetyMargin: 60,
+            preciseWalkTimeProvider: { _, _ in throw URLError(.timedOut) }
+        )
+        
+        XCTAssertEqual(optimal.id, "near", "Unverifiable stops must pass the conservative estimate")
+    }
+    
+    func testWithoutPreciseProviderUsesConservativeEstimate() async throws {
+        let now = Date()
+        let (currentPos, stops) = makeTightScenario(now: now)
+        
+        let optimal = try await ActiveRouter().calculateOptimalStop(
+            currentPosition: currentPos,
+            startTime: now,
+            stops: stops,
+            walkingSpeed: 1.4,
+            safetyMargin: 60
+        )
+        
+        XCTAssertEqual(optimal.id, "near")
+    }
+    
+    func testPreciseLookupsAreBudgeted() async throws {
+        let now = Date()
+        let currentPos = CLLocation(latitude: 59.912, longitude: 10.752)
+        
+        // 10 stopp nær brukeren med god tid – alle er heuristiske kandidater.
+        let stops = (0..<10).map { i in
+            TransitStop(id: "\(i)", name: "Stop \(i)", latitude: 59.912 + Double(i) * 0.0001, longitude: 10.752, expectedArrivalTime: now.addingTimeInterval(600 + Double(i) * 60))
+        }
+        let counter = CallCounter()
+        
+        // MapKit avviser alt den blir spurt om.
+        let optimal = try await ActiveRouter().calculateOptimalStop(
+            currentPosition: currentPos,
+            startTime: now,
+            stops: stops,
+            walkingSpeed: 1.4,
+            safetyMargin: 60,
+            preciseWalkTimeProvider: { _, _ in
+                await counter.increment()
+                return 10_000
+            }
+        )
+        
+        let calls = await counter.count
+        XCTAssertEqual(calls, 6, "Should stop after the lookup budget")
+        // Stopp 9...4 er avvist. Av de uverifiserte velges det høyest rangerte som består forsiktig estimat.
+        XCTAssertEqual(optimal.id, "3")
     }
     
     // MARK: - TransitTrip via Mock

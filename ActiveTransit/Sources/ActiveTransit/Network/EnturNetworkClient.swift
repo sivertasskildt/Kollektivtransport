@@ -7,6 +7,15 @@ public final class EnturNetworkClient: EnturClientProtocol {
     private let urlSession: URLSession
     private let endpointURL = URL(string: "https://api.entur.io/journey-planner/v3/graphql")!
     
+    /// Hvor mye Entur skal "straffe" gange sammenlignet med å sitte på (Entur-standard: 2.0).
+    /// Kjernen i appen er at brukeren gjerne går lenger for å komme tidligere frem, så gange
+    /// vektes likt med kjøring. Da optimaliserer Entur for ankomsttid, ikke minst mulig gange.
+    static let walkReluctance: Double = 1.0
+    
+    /// Antall reisealternativer som hentes. Flere alternativer øker sjansen for at ruter med
+    /// lengre gange til et fjernere stopp (men tidligere ankomst) kommer med i svaret.
+    static let numTripPatterns = 8
+    
     /// Initializes a new `EnturNetworkClient`.
     /// - Parameters:
     ///   - clientName: The `ET-Client-Name` header required by Entur (format: "company-application").
@@ -181,13 +190,15 @@ public final class EnturNetworkClient: EnturClientProtocol {
         return nil
     }
     
-    public func fetchTrips(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) async throws -> [TransitTrip] {
+    public func fetchTrips(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D, walkingSpeed: Double) async throws -> [TransitTrip] {
         let query = """
-        query getTrip($fromLat: Float!, $fromLon: Float!, $toLat: Float!, $toLon: Float!) {
+        query getTrip($fromLat: Float!, $fromLon: Float!, $toLat: Float!, $toLon: Float!, $walkSpeed: Float!, $walkReluctance: Float!, $numTripPatterns: Int!) {
           trip(
             from: {coordinates: {latitude: $fromLat, longitude: $fromLon}}
             to: {coordinates: {latitude: $toLat, longitude: $toLon}}
-            numTripPatterns: 5
+            numTripPatterns: $numTripPatterns
+            walkSpeed: $walkSpeed
+            walkReluctance: $walkReluctance
           ) {
             tripPatterns {
               expectedStartTime
@@ -219,7 +230,10 @@ public final class EnturNetworkClient: EnturClientProtocol {
             "fromLat": from.latitude,
             "fromLon": from.longitude,
             "toLat": to.latitude,
-            "toLon": to.longitude
+            "toLon": to.longitude,
+            "walkSpeed": walkingSpeed,
+            "walkReluctance": Self.walkReluctance,
+            "numTripPatterns": Self.numTripPatterns
         ]
         
         let requestBody: [String: Any] = [

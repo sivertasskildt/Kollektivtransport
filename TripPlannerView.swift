@@ -475,11 +475,14 @@ struct TripPlannerView: View {
         errorMessage = nil
         searchFocus = nil
         
+        let walkingSpeed = userSettings.walkingSpeed
+        
         Task {
             do {
                 let fetchedTrips = try await router.fetchTrips(
                     from: start,
-                    to: dest
+                    to: dest,
+                    walkingSpeed: walkingSpeed
                 )
                 
                 await MainActor.run {

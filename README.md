@@ -9,6 +9,7 @@ Transform dead waiting time into active walking time, reach your step goals, and
 ## Features
 
 - **Active Transfers (Aktiv Overgang):** The core engine intercepts standard routing results and calculates if you can walk to a subsequent stop before the bus/tram departs.
+- **Earliest Arrival, Not Least Walking:** Trip search treats walking as equal to riding (`walkReluctance: 1.0`) and uses your own walking speed, so routes where you walk further to a more distant stop are suggested when they get you there sooner.
 - **Visualized Walking Routes:** Uses Apple's `MKDirections` to calculate and draw exact walking paths (green dashed lines) on the map, guiding you through streets and intersections to your optimal boarding stop.
 - **Dynamic Routing:** Built on top of the Norwegian national journey planner (Entur) API.
 - **Interactive Map & "Liquid Glass" UI:** A sleek, fully interactive `MapKit` integration with beautiful glassmorphism (`.ultraThinMaterial`) UI elements, custom map annotations, and responsive bottom sheets.

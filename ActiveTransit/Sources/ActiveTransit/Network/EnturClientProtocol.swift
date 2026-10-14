@@ -13,10 +13,11 @@ public protocol EnturClientProtocol {
     /// - Returns: A service journey ID if found, otherwise nil.
     func fetchNearestActiveServiceJourney(currentLocation: CLLocation) async throws -> String?
     
-    /// Fetches transit trips between two coordinates.
+    /// Fetches transit trips between two coordinates, optimized for earliest arrival.
     /// - Parameters:
     ///   - from: Starting coordinate.
     ///   - to: Destination coordinate.
+    ///   - walkingSpeed: The user's walking speed in meters per second.
     /// - Returns: An array of `TransitTrip` representing the available trips.
-    func fetchTrips(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) async throws -> [TransitTrip]
+    func fetchTrips(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D, walkingSpeed: Double) async throws -> [TransitTrip]
 }

@@ -2,7 +2,12 @@ import Foundation
 import CoreLocation
 
 /// Signature for a closure that can provide a precise walking time between a location and a transit stop.
-public typealias PreciseWalkTimeProvider = (CLLocation, TransitStop) async throws -> TimeInterval
+///
+/// - Important: The returned time should be based on the user's own walking speed
+///   (e.g. `route.distance / walkingSpeed`), not a provider's default speed such as
+///   `MKRoute.expectedTravelTime`.
+/// - Note: The closure is `@Sendable` because the router verifies several candidates in parallel.
+public typealias PreciseWalkTimeProvider = @Sendable (CLLocation, TransitStop) async throws -> TimeInterval
 
 /// Protocol defining the interface for the active routing algorithm.
 public protocol ActiveRoutingProtocol {
@@ -13,7 +18,7 @@ public protocol ActiveRoutingProtocol {
     ///   - stops: A list of subsequent transit stops for the service journey, ordered by arrival time.
     ///   - walkingSpeed: The user's walking speed in meters per second. Default is 1.4 m/s.
     ///   - safetyMargin: The safety margin in seconds to ensure the user arrives before the bus. Default is 120 seconds.
-    ///   - preciseWalkTimeProvider: An optional closure to calculate a more precise walking time (e.g., using Apple Maps Directions API). If provided, it is invoked for the best candidate.
+    ///   - preciseWalkTimeProvider: An optional closure to calculate a more precise walking time (e.g., MapKit route distance divided by walking speed). If provided, the highest-ranked candidates are verified in parallel batches within a fixed lookup budget.
     /// - Returns: The optimal `TransitStop` to walk to.
     /// - Throws: `ActiveTransitError` if no better stop could be found.
     func calculateOptimalStop(

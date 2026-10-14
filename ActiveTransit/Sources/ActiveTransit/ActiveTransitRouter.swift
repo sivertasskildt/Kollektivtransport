@@ -31,10 +31,15 @@ public final class ActiveTransitRouter {
     }
     
     /// Fetches transit trips between two coordinates.
+    ///
+    /// The search is optimized for earliest arrival: walking is weighted the same as riding,
+    /// so trips that require walking further to a more distant stop are included when they arrive sooner.
     /// - Parameters:
     ///   - from: Starting coordinate.
-    public func fetchTrips(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) async throws -> [TransitTrip] {
-        return try await networkClient.fetchTrips(from: from, to: to)
+    ///   - to: Destination coordinate.
+    ///   - walkingSpeed: The user's walking speed in meters per second. Default is 1.4 m/s.
+    public func fetchTrips(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D, walkingSpeed: Double = 1.4) async throws -> [TransitTrip] {
+        return try await networkClient.fetchTrips(from: from, to: to, walkingSpeed: walkingSpeed)
     }
     
     /// Fetches the subsequent stops for a given service journey.
