@@ -36,7 +36,7 @@ public final class ActiveRouter: ActiveRoutingProtocol {
         startTime: Date = Date(),
         stops: [TransitStop],
         walkingSpeed: Double = 1.4,
-        safetyMargin: TimeInterval = 120,
+        safetyMargin: TimeInterval = 20,
         preciseWalkTimeProvider: PreciseWalkTimeProvider? = nil
     ) async throws -> TransitStop {
         

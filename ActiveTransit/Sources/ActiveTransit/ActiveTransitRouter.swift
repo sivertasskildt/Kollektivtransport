@@ -55,7 +55,7 @@ public final class ActiveTransitRouter {
     ///   - serviceJourneyId: The ID of the service journey (from Entur).
     ///   - currentPosition: The user's current location.
     ///   - walkingSpeed: The user's walking speed in meters per second. Default is 1.4 m/s.
-    ///   - safetyMargin: The safety margin in seconds to ensure the user arrives before the bus. Default is 120 seconds.
+    ///   - safetyMargin: The safety margin in seconds to ensure the user arrives before the bus. Default is 20 seconds.
     ///   - preciseWalkTimeProvider: An optional closure to calculate a more precise walking time.
     /// - Returns: The optimal `TransitStop` to walk to.
     /// - Throws: `ActiveTransitError` if the network request fails, or no better stop could be found.
@@ -64,7 +64,7 @@ public final class ActiveTransitRouter {
         currentPosition: CLLocation,
         startTime: Date = Date(),
         walkingSpeed: Double = 1.4,
-        safetyMargin: TimeInterval = 120,
+        safetyMargin: TimeInterval = 20,
         preciseWalkTimeProvider: PreciseWalkTimeProvider? = nil
     ) async throws -> TransitStop {
         // 1. Fetch subsequent stops for the service journey
@@ -85,7 +85,7 @@ public final class ActiveTransitRouter {
         currentPosition: CLLocation,
         startTime: Date = Date(),
         walkingSpeed: Double = 1.4,
-        safetyMargin: TimeInterval = 120,
+        safetyMargin: TimeInterval = 20,
         preciseWalkTimeProvider: PreciseWalkTimeProvider? = nil
     ) async throws -> TransitStop {
         guard !stops.isEmpty else {

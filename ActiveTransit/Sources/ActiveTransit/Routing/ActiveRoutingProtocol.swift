@@ -17,7 +17,7 @@ public protocol ActiveRoutingProtocol {
     ///   - currentPosition: The user's current location.
     ///   - stops: A list of subsequent transit stops for the service journey, ordered by arrival time.
     ///   - walkingSpeed: The user's walking speed in meters per second. Default is 1.4 m/s.
-    ///   - safetyMargin: The safety margin in seconds to ensure the user arrives before the bus. Default is 120 seconds.
+    ///   - safetyMargin: The safety margin in seconds to ensure the user arrives before the bus. Default is 20 seconds.
     ///   - preciseWalkTimeProvider: An optional closure to calculate a more precise walking time (e.g., MapKit route distance divided by walking speed). If provided, the highest-ranked candidates are verified in parallel batches within a fixed lookup budget.
     /// - Returns: The optimal `TransitStop` to walk to.
     /// - Throws: `ActiveTransitError` if no better stop could be found.

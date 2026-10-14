@@ -21,7 +21,8 @@ struct SettingsView: View {
                 Section(header: Text("Sikkerhetsmargin")) {
                     Picker("Tid før avgang", selection: $userSettings.safetyMargin) {
                         Text("0 sek (Ingen margin!)").tag(0.0)
-                        Text("30 sekunder").tag(30.0)
+                        Text("20 sekunder (Aktiv)").tag(20.0)
+                        Text("45 sekunder").tag(45.0)
                         Text("1 minutt").tag(60.0)
                         Text("2 minutter").tag(120.0)
                     }

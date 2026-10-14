@@ -51,7 +51,7 @@ let optimaltStopp = try await router.findOptimalBoardingStop(
     currentPosition: minLokasjon,
     startTime: Date(), // Tiden du starter å gå
     walkingSpeed: 1.4, // meter per sekund
-    safetyMargin: 60, // 1 minutt sikkerhetsmargin
+    safetyMargin: 20, // 20 sekunder sikkerhetsmargin
     preciseWalkTimeProvider: nil // Valgfritt: injiser presis gangtid (f.eks. MapKit-distanse / ganghastighet)
 )
 
